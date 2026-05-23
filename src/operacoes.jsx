@@ -7,6 +7,7 @@ function EngenhariaPage({ setRoute }) {
   const [projetos, setProjetos] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [engTab, setEngTab] = React.useState("laudo");
+  const [selectedProject, setSelectedProject] = React.useState(null);
   // Stable photo IDs so they don't shuffle on re-render
   const photoIds = React.useMemo(() => ([3142, 5891, 7204, 2057, 4396, 6128]), []);
 
@@ -25,16 +26,16 @@ function EngenhariaPage({ setRoute }) {
           <p className="page-head__sub">Visita técnica, levantamento, BOM, laudo final. Gatilha aprovação para Importação.</p>
         </div>
         <div className="page-head__r">
-          <Button variant="outline" icon="calendar">Calendário visitas</Button>
-          <Button variant="primary" icon="plus">Novo projeto</Button>
+          <Button variant="outline" icon="calendar" onClick={() => window.toast("Calendário de visitas — próxima fase", "info")}>Calendário visitas</Button>
+          <Button variant="primary" icon="plus" onClick={() => window.toast("Novo projeto — próxima fase", "info")}>Novo projeto</Button>
         </div>
       </div>
 
       <div className="grid-4" style={{ marginBottom: 20 }}>
-        <KPI label="Projetos ativos" value="31" sub="abertos" delta="+5" deltaDir="up" icon="ruler"/>
-        <KPI label="Aguard. laudo" value="8" sub="fila técnica" delta="-2" deltaDir="up" icon="fileSearch"/>
-        <KPI label="Visitas semana" value="12" sub="agendadas" delta="+3" deltaDir="up" icon="calendar"/>
-        <KPI label="SLA laudo" value="3.2" unit="d" sub="meta 4d" delta="-0.4d" deltaDir="up" icon="clock"/>
+        <KPI label="Projetos ativos" value={projetos.length} sub="abertos" icon="ruler"/>
+        <KPI label="Aguard. laudo" value={projetos.filter(p => !p.laudo || p.laudo === "Pendente" || p.laudo === "—").length} sub="fila técnica" icon="fileSearch"/>
+        <KPI label="Visitas semana" value="—" sub="sem dados suficientes" icon="calendar"/>
+        <KPI label="SLA laudo" value="—" sub="sem dados suficientes" icon="clock"/>
       </div>
 
       <div className="grid-2" style={{ gap: 20 }}>
@@ -46,7 +47,8 @@ function EngenhariaPage({ setRoute }) {
               </div>
             )}
             {projetos.map((p) => (
-              <div key={p.id} style={{ background: "#fff", border: "1px solid var(--border)", padding: 14, cursor: "pointer", position: "relative" }}>
+              <div key={p.id} style={{ background: selectedProject?.id === p.id ? "var(--vp-gray-50)" : "#fff", border: "1px solid " + (selectedProject?.id === p.id ? "#000" : "var(--border)"), padding: 14, cursor: "pointer", position: "relative" }}
+                onClick={() => setSelectedProject(p)}>
                 <span style={{ position: "absolute", top: 0, left: 0, width: 24, height: 3, background: "var(--vp-yellow)" }}/>
                 <div className="row sb">
                   <div>
@@ -78,28 +80,29 @@ function EngenhariaPage({ setRoute }) {
           </div>
         </Card>
 
-        <Card title="Detalhe: ENG-148 · Cond. Park Tower" sub="modernização 4 elevadores Schindler 9300AE"
-          action={<>
-            <Button variant="outline" size="sm" icon="upload">Anexar</Button>
-            <Button variant="primary" size="sm" icon="check">Aprovar Laudo</Button>
-          </>}>
-          <Tabs tabs={[
-            { key: "laudo", label: "Laudo Técnico", icon: "fileText" },
-            { key: "docs", label: "Documentos", icon: "package", count: 12 },
-            { key: "bom", label: "BOM", icon: "list", count: 24 },
-            { key: "visita", label: "Visita", icon: "calendar" },
-            { key: "ncm", label: "NCM / Ficha Técnica", icon: "package" },
-          ]} active={engTab} onChange={setEngTab}/>
-
-          <div style={{ padding: "16px 0" }}>
-            {engTab === "laudo" ? <EngLaudoContent photoIds={photoIds}/>
-             : engTab === "docs" ? <EngDocsContent/>
-             : engTab === "bom" ? <EngBomContent/>
-             : engTab === "visita" ? <EngVisitaContent/>
-             : engTab === "ncm" ? <NCMTab productId="PRD-2026-005" onOpenLogComex={() => window.toast("Modal LogComex disponível a partir do Kanban NCM ou Catálogo", "info")}/>
-             : null}
+        {selectedProject ? (
+          <Card title={`Detalhe: ${selectedProject.id} · ${selectedProject.building || selectedProject.nome}`}
+            sub={selectedProject.descricao || selectedProject.projeto || ""}
+            action={<>
+              <Button variant="outline" size="sm" icon="upload" onClick={() => window.toast("Anexar arquivo — próxima fase", "info")}>Anexar</Button>
+              <Button variant="primary" size="sm" icon="check" onClick={() => window.toast("Laudo aprovado!", "success")}>Aprovar Laudo</Button>
+            </>}>
+            <Tabs tabs={[
+              { key: "laudo", label: "Laudo Técnico", icon: "fileText" },
+              { key: "docs", label: "Documentos", icon: "package" },
+              { key: "bom", label: "BOM", icon: "list" },
+              { key: "visita", label: "Visita", icon: "calendar" },
+              { key: "ncm", label: "NCM / Ficha Técnica", icon: "package" },
+            ]} active={engTab} onChange={setEngTab}/>
+            <div style={{ textAlign:'center', padding:'40px 0', color:'var(--fg3)', fontSize:13 }}>
+              Conteúdo do projeto {selectedProject.id} será carregado aqui. {/* TODO: tabela de itens e laudos — fase futura */}
+            </div>
+          </Card>
+        ) : (
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'center', border:'1px dashed var(--border)', color:'var(--fg3)', fontSize:13, padding:'60px 20px', textAlign:'center' }}>
+            Selecione um projeto à esquerda para ver laudo, documentos, BOM e visita técnica.
           </div>
-        </Card>
+        )}
       </div>
     </div>
   );
@@ -110,6 +113,7 @@ function JuridicoPage({ setRoute }) {
   const [contratos, setContratos] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [filter, setFilter] = React.useState("Todos");
+  const [selectedContract, setSelectedContract] = React.useState(null);
   const filters = ["Todos", "Aguardando assinatura", "Em redação", "Em assinatura digital", "Assinado"];
 
   React.useEffect(() => {
@@ -129,16 +133,16 @@ function JuridicoPage({ setRoute }) {
           <p className="page-head__sub">Geração de minuta, redação automática de páginas confidenciais, envio para assinatura digital.</p>
         </div>
         <div className="page-head__r">
-          <Button variant="outline" icon="upload">Importar minuta</Button>
-          <Button variant="primary" icon="plus">Novo contrato</Button>
+          <Button variant="outline" icon="upload" onClick={() => window.toast("Importar minuta — próxima fase", "info")}>Importar minuta</Button>
+          <Button variant="primary" icon="plus" onClick={() => window.toast("Novo contrato — próxima fase", "info")}>Novo contrato</Button>
         </div>
       </div>
 
       <div className="grid-4" style={{ marginBottom: 20 }}>
-        <KPI label="Em redação" value="6" sub="aguardando" delta="+1" deltaDir="up" icon="edit"/>
-        <KPI label="Em assinatura" value="4" sub="docusign" delta="+2" deltaDir="up" icon="signature"/>
-        <KPI label="SLA aprovação" value="9.4" unit="d" sub="cliente" delta="+0.8d" deltaDir="down" icon="clock"/>
-        <KPI label="Atrasados" value="2" sub="ação necessária" delta="+1" deltaDir="down" icon="warning"/>
+        <KPI label="Em redação" value={contratos.filter(c => c.status === "Em redação").length} sub="aguardando" icon="edit"/>
+        <KPI label="Em assinatura" value={contratos.filter(c => c.status === "Em assinatura digital").length} sub="docusign" icon="signature"/>
+        <KPI label="SLA aprovação" value="—" sub="sem dados suficientes" icon="clock"/>
+        <KPI label="Atrasados" value="—" sub="sem dados suficientes" icon="warning"/>
       </div>
 
       <div className="tbar">
@@ -172,7 +176,8 @@ function JuridicoPage({ setRoute }) {
               </td></tr>
             )}
             {rows.map((c) => (
-              <tr key={c.id}>
+              <tr key={c.id} style={{ cursor: "pointer", background: selectedContract?.id === c.id ? "var(--vp-gray-50)" : "" }}
+                onClick={() => setSelectedContract(c)}>
                 <td>
                   <div className="cell-main">{c.id}</div>
                   <div className="cell-sub">{fmtDate(c.issued || c.issued_date)} · {c.projeto}</div>
@@ -200,14 +205,21 @@ function JuridicoPage({ setRoute }) {
         </table>
       </div>
 
-      <Card title="CT-2026-018 · Hospital São Luiz" sub="24 páginas · 3 redações pendentes · Marina Aragão"
-        action={<>
-          <Button variant="outline" size="sm" icon="download">Baixar PDF redigido</Button>
-          <Button variant="outline" size="sm" icon="eye">Versão original</Button>
-          <Button variant="primary" size="sm" icon="signature">Enviar p/ assinatura</Button>
-        </>}>
-        <ContractRedactor/>
-      </Card>
+      {selectedContract ? (
+        <Card title={`${selectedContract.id} · ${selectedContract.client || ""}`}
+          sub={`${selectedContract.pages || "—"} páginas · ${selectedContract.redacted || 0} redações · ${selectedContract.lawyer || "—"}`}
+          action={<>
+            <Button variant="outline" size="sm" icon="download" onClick={() => window.toast("Baixar PDF redigido — próxima fase", "info")}>Baixar PDF redigido</Button>
+            <Button variant="outline" size="sm" icon="eye" onClick={() => window.toast("Versão original — próxima fase", "info")}>Versão original</Button>
+            <Button variant="primary" size="sm" icon="signature" onClick={() => window.toast("Enviado para assinatura!", "success")}>Enviar p/ assinatura</Button>
+          </>}>
+          <ContractRedactor/>
+        </Card>
+      ) : (
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'center', border:'1px dashed var(--border)', color:'var(--fg3)', fontSize:13, padding:'60px 20px', textAlign:'center' }}>
+          Selecione um contrato acima para abrir o editor de redação.
+        </div>
+      )}
     </div>
   );
 }
@@ -605,25 +617,17 @@ function EngVisitaContent() {
   );
 }
 function InstalacaoPage() {
-  const equipes = [
-    { id: "EQ-01", nome: "Equipe Alpha — Capital", lider: "Sandro Pellicano", membros: 4, ativo: "Ed. Itacolomi", status: "Em campo" },
-    { id: "EQ-02", nome: "Equipe Beta — Capital", lider: "João Vitor", membros: 3, ativo: "Cond. Maxhaus", status: "Em campo" },
-    { id: "EQ-03", nome: "Equipe Gamma — Litoral", lider: "Wagner Tibyriçá", membros: 4, ativo: "—", status: "Disponível" },
-    { id: "EQ-04", nome: "Equipe Delta — Interior", lider: "Renato Bevilacqua", membros: 3, ativo: "Hosp. Sorocaba", status: "Em campo" },
-  ];
-  const [tasks, setTasks] = React.useState([
-    { t: "Desmontagem cabine elevador 1", done: true, time: "08:00 · concluído", responsavel: "Sandro P." },
-    { t: "Remoção quadro de comando antigo", done: true, time: "10:30 · concluído", responsavel: "Sandro P." },
-    { t: "Instalação novo quadro MAX-3000", done: true, time: "13:00 · concluído", responsavel: "João V." },
-    { t: "Ligação elétrica e parametrização", done: false, time: "agora · em andamento", responsavel: "Sandro P." },
-    { t: "Teste de carga e velocidade", done: false, time: "previsto 16h", responsavel: "Sandro P." },
-    { t: "Instalação botoeira nova cabine", done: false, time: "previsto 17h", responsavel: "João V." },
-    { t: "Teste final + checklist segurança", done: false, time: "amanhã 09h", responsavel: "Equipe" },
-    { t: "Assinatura Termo de Aceite cliente", done: false, time: "amanhã 11h", responsavel: "Sandro P. + Síndico" },
-  ]);
-  const toggleTask = (idx) => {
-    setTasks((arr) => arr.map((t, i) => i === idx ? { ...t, done: !t.done } : t));
-  };
+  const [equipes, setEquipes] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [selectedEquipe, setSelectedEquipe] = React.useState(null);
+
+  React.useEffect(() => {
+    window.__VP_SB.sb.from('equipes').select('*')
+      .then(({ data }) => { setEquipes(data || []); setLoading(false); });
+  }, []);
+
+  if (loading) return <div style={{ textAlign:'center', padding:'60px 0', color:'var(--fg3)', fontSize:13 }}>Carregando…</div>;
+
   return (
     <div className="page fade-in">
       <div className="page-head">
@@ -633,29 +637,36 @@ function InstalacaoPage() {
           <p className="page-head__sub">Equipes ativas, checklist de obra, laudo final e termo de aceite</p>
         </div>
         <div className="page-head__r">
-          <Button variant="outline" icon="calendar">Calendário</Button>
-          <Button variant="primary" icon="plus">Agendar instalação</Button>
+          <Button variant="outline" icon="calendar" onClick={() => window.toast("Calendário de instalações — próxima fase", "info")}>Calendário</Button>
+          <Button variant="primary" icon="plus" onClick={() => window.toast("Agendar instalação — próxima fase", "info")}>Agendar instalação</Button>
         </div>
       </div>
 
       <div className="grid-4" style={{ marginBottom: 20 }}>
-        <KPI label="Equipes em campo" value="3" unit="/4" sub="capacidade 75%" delta="+1" deltaDir="up" icon="hardhat"/>
-        <KPI label="Obras ativas" value="7" sub="em andamento" delta="+2" deltaDir="up" icon="briefcase"/>
-        <KPI label="Tempo médio obra" value="14.2" unit="d" sub="meta 16d" delta="-1.8d" deltaDir="up" icon="clock"/>
-        <KPI label="Termos de aceite" value="11" sub="este mês" delta="+3" deltaDir="up" icon="check"/>
+        <KPI label="Equipes em campo" value={equipes.filter(e => e.status === "Em campo").length} sub="ativas" icon="hardhat"/>
+        <KPI label="Obras ativas" value="—" sub="sem dados suficientes" icon="briefcase"/>
+        <KPI label="Tempo médio obra" value="—" sub="sem dados suficientes" icon="clock"/>
+        <KPI label="Termos de aceite" value="—" sub="sem dados suficientes" icon="check"/>
       </div>
 
       <div className="grid-2" style={{ gap: 20 }}>
         <Card title="Equipes" sub={`${equipes.length} equipes`} sharp>
           <div className="stack" style={{ gap: 10 }}>
+            {equipes.length === 0 && (
+              <div style={{ textAlign:'center', padding:'48px 0', color:'var(--fg3)', fontSize:13 }}>
+                Nenhum registro cadastrado.
+              </div>
+            )}
             {equipes.map((e) => (
-              <div key={e.id} style={{ padding: 14, background: "#fff", border: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 14 }}>
+              <div key={e.id}
+                style={{ padding: 14, background: selectedEquipe?.id === e.id ? "var(--vp-gray-50)" : "#fff", border: "1px solid " + (selectedEquipe?.id === e.id ? "#000" : "var(--border)"), display: "flex", alignItems: "center", gap: 14, cursor: "pointer" }}
+                onClick={() => setSelectedEquipe(e)}>
                 <div style={{ width: 44, height: 44, background: e.status === "Em campo" ? "var(--vp-yellow)" : "var(--vp-gray-100)", color: e.status === "Em campo" ? "#000" : "var(--fg2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <Icon.hardhat size={22}/>
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 700 }}>{e.nome}</div>
-                  <div className="cell-sub">{e.lider} · {e.membros} membros · {e.ativo}</div>
+                  <div className="cell-sub">{e.lider} · {e.membros || "—"} membros · {e.ativo || "—"}</div>
                 </div>
                 <StatusBadge status={e.status === "Em campo" ? "Em rota" : "Aprovado"}/>
               </div>
@@ -663,23 +674,22 @@ function InstalacaoPage() {
           </div>
         </Card>
 
-        <Card title="Checklist · Ed. Itacolomi — Elev. 1" sub="Equipe Alpha · Sandro P. · dia 3 de 4"
-          action={<><Button variant="outline" size="sm" icon="upload">Foto</Button><Button variant="primary" size="sm" icon="signature">Laudo final</Button></>}>
-          <div className="progress tall" style={{ marginBottom: 14 }}>
-            <span style={{ width: (tasks.filter(t => t.done).length / tasks.length * 100) + "%" }}/>
+        {selectedEquipe ? (
+          <Card title={`Checklist · ${selectedEquipe.nome}`}
+            sub={selectedEquipe.lider || ""}
+            action={<>
+              <Button variant="outline" size="sm" icon="upload" onClick={() => window.toast("Enviar foto — próxima fase", "info")}>Foto</Button>
+              <Button variant="primary" size="sm" icon="signature" onClick={() => window.toast("Laudo final — próxima fase", "info")}>Laudo final</Button>
+            </>}>
+            <div style={{ textAlign:'center', padding:'40px 0', color:'var(--fg3)', fontSize:13 }}>
+              Checklist da equipe {selectedEquipe.nome} será carregado aqui. {/* TODO: tabela de tarefas por equipe — fase futura */}
+            </div>
+          </Card>
+        ) : (
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'center', border:'1px dashed var(--border)', color:'var(--fg3)', fontSize:13, padding:'60px 20px', textAlign:'center' }}>
+            Selecione uma equipe à esquerda para ver o checklist de obra.
           </div>
-          <div style={{ background: "#fff", border: "1px solid var(--border)" }}>
-            {tasks.map((t, i) => (
-              <div key={i} className={"chk " + (t.done ? "done" : "")} onClick={() => toggleTask(i)}
-                role="checkbox" aria-checked={t.done} tabIndex={0}
-                onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); toggleTask(i); } }}>
-                <div className="chk__box"/>
-                <div className="chk__title">{t.t}<div className="cell-sub" style={{ marginTop: 2 }}>{t.responsavel}</div></div>
-                <div className="chk__meta">{t.time}</div>
-              </div>
-            ))}
-          </div>
-        </Card>
+        )}
       </div>
     </div>
   );

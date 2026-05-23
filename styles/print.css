@@ -1,0 +1,318 @@
+/* ============================================================
+   styles/print.css — Tour-style PDF: 1 página por módulo
+   Carregado APENAS no index-print.html
+   ============================================================ */
+
+@page {
+  size: 1600px 1000px;
+  margin: 0;
+}
+
+html, body {
+  overflow: visible !important;
+  height: auto !important;
+  background: #fff !important;
+}
+
+/* Hide things that don't belong in print */
+.toast-viewport,
+.twk-panel,
+.sidebar__collapse,
+.header__btn,
+.header__search,
+.role-switch,
+.tweaks-only,
+.pe__actionbar,
+.modal-shroud {
+  display: none !important;
+}
+
+/* Each "page" wrapper */
+.print-page {
+  width: 1600px;
+  height: 1000px;
+  position: relative;
+  display: grid;
+  grid-template-rows: 56px 1fr;
+  overflow: hidden;
+  break-after: page;
+  background: var(--vp-gray-50);
+  page-break-after: always;
+}
+.print-page:last-child { break-after: auto; page-break-after: auto; }
+
+/* Header strip — VP brand + module label */
+.print-page__head {
+  background: #000;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  gap: 16px;
+  position: relative;
+  border-bottom: 2px solid var(--vp-yellow);
+}
+.print-page__head img.brand { height: 22px; }
+.print-page__head .module-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .2em;
+  color: var(--vp-gray-500);
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.print-page__head .module-title {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: #fff;
+}
+.print-page__head .module-sub {
+  font-size: 11px;
+  color: rgba(255,255,255,.6);
+  margin-left: auto;
+  font-family: var(--font-mono);
+  letter-spacing: .04em;
+}
+.print-page__head .pgnum {
+  background: var(--vp-yellow);
+  color: #000;
+  font-family: var(--font-mono);
+  font-weight: 800;
+  font-size: 11px;
+  padding: 2px 8px;
+  letter-spacing: .04em;
+  margin-left: 12px;
+}
+.print-page__head .pgnum-total {
+  color: var(--vp-gray-500);
+  font-size: 10px;
+  margin-left: 4px;
+}
+
+.print-page__body {
+  overflow: hidden;
+  background: var(--vp-gray-50);
+}
+
+/* The .page content inside needs to be reset to non-scroll */
+.print-page .main { overflow: visible !important; height: auto !important; }
+.print-page .page { padding: 20px 28px !important; max-width: none !important; }
+.print-page .page-head__title { font-size: 28px !important; }
+
+/* Cover page */
+.print-cover {
+  width: 1600px;
+  height: 1000px;
+  background: #000;
+  color: #fff;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  break-after: page;
+  page-break-after: always;
+  position: relative;
+  overflow: hidden;
+}
+.print-cover::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(135deg, rgba(255,255,255,.02) 0 2px, transparent 2px 24px);
+  pointer-events: none;
+}
+.print-cover__body {
+  padding: 80px 96px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 32px;
+  position: relative;
+  z-index: 1;
+}
+.print-cover__eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .3em;
+  color: var(--vp-yellow);
+  text-transform: uppercase;
+}
+.print-cover__brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+.print-cover__brand img { height: 48px; }
+.print-cover__title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 92px;
+  line-height: .92;
+  letter-spacing: -.01em;
+  text-transform: uppercase;
+  color: #fff;
+  max-width: 1200px;
+}
+.print-cover__title b { color: var(--vp-yellow); font-weight: 800; }
+.print-cover__sub {
+  font-size: 18px;
+  line-height: 1.55;
+  color: rgba(255,255,255,.7);
+  max-width: 760px;
+}
+.print-cover__meta {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 32px;
+  padding: 28px 96px;
+  background: #1F1F1F;
+  border-top: 2px solid var(--vp-yellow);
+  position: relative;
+  z-index: 1;
+}
+.print-cover__meta-item .lbl {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--vp-gray-500);
+  margin-bottom: 6px;
+}
+.print-cover__meta-item .val {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 22px;
+  color: #fff;
+  letter-spacing: .02em;
+}
+.print-cover__meta-item .val.yellow { color: var(--vp-yellow); }
+
+/* Force background colors to print */
+* {
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+}
+
+/* Disable interactivity hints */
+.print-page button,
+.print-page .nav-item,
+.print-page .gantt__row,
+.print-page tbody tr {
+  cursor: default !important;
+}
+
+/* Hide elements that confuse print: tweaks etc. */
+.print-page__body .sidebar { display: none !important; }
+.print-page__body .header { display: none !important; }
+.print-page__body .app {
+  display: block !important;
+  height: auto !important;
+}
+
+/* Tighter page padding inside print */
+.print-page__body .page { padding: 18px 24px 12px !important; }
+.print-page__body .page-head { margin-bottom: 14px !important; }
+.print-page__body .page-head__title { font-size: 26px !important; line-height: 1 !important; }
+.print-page__body .page-head__sub { font-size: 12px !important; }
+.print-page__body .kpi { padding: 10px 12px !important; }
+.print-page__body .kpi__value { font-size: 24px !important; }
+.print-page__body .card { padding: 12px !important; }
+.print-page__body .card__title { font-size: 13px !important; }
+.print-page__body table.t thead th { padding: 8px 12px !important; font-size: 9.5px !important; }
+.print-page__body table.t tbody td { padding: 8px 12px !important; font-size: 12px !important; }
+
+/* Cap content height per page — clip overflow gracefully */
+.print-page__body { max-height: 944px; overflow: hidden; }
+
+/* Toc / index page */
+.print-toc {
+  width: 1600px;
+  height: 1000px;
+  background: #fff;
+  padding: 60px 96px;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  break-after: page;
+  page-break-after: always;
+  position: relative;
+}
+.print-toc h1 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 56px;
+  text-transform: uppercase;
+  margin: 0;
+  letter-spacing: -.005em;
+}
+.print-toc h1 small {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: .2em;
+  color: var(--vp-yellow-press);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+.print-toc__list {
+  margin-top: 40px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 80px;
+}
+.print-toc__item {
+  display: grid;
+  grid-template-columns: 36px 1fr 60px;
+  gap: 16px;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.print-toc__num {
+  background: #000;
+  color: var(--vp-yellow);
+  font-family: var(--font-mono);
+  font-weight: 800;
+  font-size: 11px;
+  padding: 4px 6px;
+  text-align: center;
+}
+.print-toc__name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 16px;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+}
+.print-toc__name small {
+  display: block;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: 11px;
+  color: var(--fg3);
+  text-transform: none;
+  letter-spacing: 0;
+  margin-top: 2px;
+}
+.print-toc__pg {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg3);
+  text-align: right;
+}
+.print-toc__foot {
+  margin-top: 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg3);
+  border-top: 2px solid var(--vp-yellow);
+  padding-top: 14px;
+}

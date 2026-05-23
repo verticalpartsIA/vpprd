@@ -1,0 +1,19 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+*.code-workspace
+
+# Uploads temporários (manter apenas o que for referência)
+uploads/*.pdf
+
+# Thumbnail interno do Claude
+.thumbnail
+
+# Node (caso venha a ter build no futuro)
+node_modules/
+dist/
+.env
+.env.local

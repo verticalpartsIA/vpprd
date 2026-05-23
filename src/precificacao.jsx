@@ -6,6 +6,7 @@
 function PrecificacaoPage({ setRoute }) {
   const [projetos, setProjetos] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
+  const [selectedProject, setSelectedProject] = React.useState(null);
 
   React.useEffect(() => {
     // Busca clientes convertidos como base de precificação
@@ -26,6 +27,12 @@ function PrecificacaoPage({ setRoute }) {
     margem: margemArr[idx % margemArr.length],
     versions: versionsArr[idx % versionsArr.length],
   }));
+
+  const margemMedia = items.length > 0
+    ? (items.reduce((s, p) => s + p.margem, 0) / items.length).toFixed(1)
+    : '—';
+  const totalVersoes = items.reduce((s, p) => s + p.versions, 0);
+
   return (
     <div className="page fade-in">
       <div className="page-head">
@@ -35,15 +42,15 @@ function PrecificacaoPage({ setRoute }) {
           <p className="page-head__sub">Calcule preço final com FOB China + impostos + frete + margem. Acesso restrito a Comercial Sr. / Financeiro / Admin.</p>
         </div>
         <div className="page-head__r">
-          <Button variant="outline" icon="download">Exportar planilhas</Button>
-          <Button variant="primary" icon="plus">Nova precificação</Button>
+          <Button variant="outline" icon="download" onClick={() => window.toast("Exportar planilhas — próxima fase", "info")}>Exportar planilhas</Button>
+          <Button variant="primary" icon="plus" onClick={() => setSelectedProject({})}>Nova precificação</Button>
         </div>
       </div>
 
       <div className="grid-3" style={{ marginBottom: 20 }}>
-        <KPI label="Margem média" value="32.7" unit="%" sub="Q2/26" delta="+0.8pp" deltaDir="up" icon="trending"/>
-        <KPI label="Cálculos abertos" value="11" sub="ativos" delta="+3" deltaDir="up" icon="calculator"/>
-        <KPI label="Versões geradas (mês)" value="48" sub="média 4.4/projeto" delta="+12" deltaDir="up" icon="history"/>
+        <KPI label="Margem média" value={margemMedia} unit={items.length > 0 ? "%" : ""} sub="projetos convertidos" icon="trending"/>
+        <KPI label="Cálculos abertos" value={items.length} sub="ativos" icon="calculator"/>
+        <KPI label="Versões geradas" value={totalVersoes} sub={items.length > 0 ? `média ${(totalVersoes/items.length).toFixed(1)}/projeto` : "aguardando dados"} icon="history"/>
       </div>
 
       <div className="table-wrap">
@@ -60,7 +67,9 @@ function PrecificacaoPage({ setRoute }) {
               </td></tr>
             )}
             {items.map((p) => (
-              <tr key={p.id} onClick={() => setRoute("precificacao-detail")}>
+              <tr key={p.id}
+                style={{ cursor:'pointer', background: selectedProject?.id === p.id ? 'var(--vp-gray-50)' : '' }}
+                onClick={() => setSelectedProject(p)}>
                 <td>
                   <div className="cell-main">{p.name}</div>
                   <div className="cell-sub">{p.id}</div>
@@ -77,25 +86,31 @@ function PrecificacaoPage({ setRoute }) {
         </table>
       </div>
 
-      <div style={{ marginTop: 20 }}>
-        <PrecificacaoDetail/>
-      </div>
+      {selectedProject !== null ? (
+        <div style={{ marginTop: 20 }}>
+          <PrecificacaoDetail project={selectedProject}/>
+        </div>
+      ) : items.length > 0 && (
+        <div style={{ marginTop: 20, textAlign:'center', padding:'32px 0', color:'var(--fg3)', fontSize:13, border:'1px dashed var(--border)' }}>
+          Selecione um projeto acima para abrir a calculadora de precificação.
+        </div>
+      )}
     </div>
   );
 }
 
-function PrecificacaoDetail() {
+function PrecificacaoDetail({ project = {} }) {
   // Live calculator state
-  const [fobUSD, setFobUSD] = React.useState(184320);
-  const [usdRate, setUsdRate] = React.useState(5.18);
-  const [freteUSD, setFreteUSD] = React.useState(8400);
+  const [fobUSD, setFobUSD] = React.useState(0);
+  const [usdRate, setUsdRate] = React.useState(5.20);
+  const [freteUSD, setFreteUSD] = React.useState(0);
   const [seguroPct, setSeguroPct] = React.useState(1.2);
   const [iiPct, setIiPct] = React.useState(14);
   const [ipiPct, setIpiPct] = React.useState(8);
   const [pisCofinsPct, setPisCofinsPct] = React.useState(11.75);
   const [icmsPct, setIcmsPct] = React.useState(18);
-  const [despAduana, setDespAduana] = React.useState(18000);
-  const [freteBR, setFreteBR] = React.useState(12500);
+  const [despAduana, setDespAduana] = React.useState(0);
+  const [freteBR, setFreteBR] = React.useState(0);
   const [margemPct, setMargemPct] = React.useState(32);
   const [comissaoPct, setComissaoPct] = React.useState(4);
 
@@ -115,17 +130,11 @@ function PrecificacaoDetail() {
   const margemBRL = valorFinal - custoTotal;
 
   const versions = [
-    { v: 7, when: "agora", who: "Você", change: "Ajuste margem 30→32%", value: valorFinal, current: true },
-    { v: 6, when: "ontem 16:42", who: "Letícia M.", change: "Reduz frete BR R$ 14k→12,5k", value: 1318450 },
-    { v: 5, when: "ontem 10:18", who: "Bruno P.", change: "Atualiza câmbio USD 5,12→5,18", value: 1322800 },
-    { v: 4, when: "11/mai", who: "Letícia M.", change: "Cot. China recebida — FOB confirmado", value: 1294500 },
-    { v: 3, when: "10/mai", who: "Bruno P.", change: "Margem inicial 28%", value: 1180400 },
-    { v: 2, when: "08/mai", who: "Letícia M.", change: "Adiciona seguro 1.2%", value: 1218900 },
-    { v: 1, when: "06/mai", who: "Bruno P.", change: "Rascunho inicial", value: 1140000 },
+    { v: 1, when: "agora", who: "Você", change: "Rascunho inicial", value: valorFinal, current: true },
   ];
 
   return (
-    <Card title="Cálculo: Hospital São Luiz — Retrofit Gen2" sub="PJ-2026-006 · CT-2026-117 · 14 itens importados"
+    <Card title={project.name ? `Cálculo: ${project.name}` : "Nova Precificação"} sub={project.id ? `Lead ${project.id}` : "Preencha os campos para calcular o preço final"}
       action={<>
         <Button variant="outline" size="sm" icon="history">Versões</Button>
         <Button variant="outline" size="sm" icon="copy">Duplicar</Button>
@@ -203,7 +212,7 @@ function PrecificacaoDetail() {
 
         <div className="stack">
           <div className="calc-summary">
-            <div className="up-eyebrow" style={{ color: "var(--vp-yellow)" }}>Resumo · v7 (rascunho)</div>
+            <div className="up-eyebrow" style={{ color: "var(--vp-yellow)" }}>Resumo · v{versions[0]?.v ?? 1} (rascunho)</div>
             <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, textTransform: "uppercase", margin: "8px 0 16px", color: "#fff" }}>Preço final ao cliente</h3>
             <div className="calc-summary__row"><span>CIF (Cost+Insur+Freight)</span><b>{fmtBRL(cifBRL)}</b></div>
             <div className="calc-summary__row"><span>Impostos</span><b>{fmtBRL(totalImpostos)}</b></div>
@@ -278,12 +287,19 @@ function ImpostoRow({ label, pct, setPct, valor }) {
 
 /* ---------- PROPOSTAS (Wizard + PDF preview) ---------- */
 function PropostasPage({ setRoute }) {
-  const list = [
-    { id: "PR-2026-047", projeto: "Hospital São Luiz", value: 1840000, status: "Em redação", validade: "30 dias", step: 3, total: 5 },
-    { id: "PR-2026-046", projeto: "Ed. Faria Lima Plaza", value: 1180000, status: "Aprovado", validade: "30 dias", step: 5, total: 5 },
-    { id: "PR-2026-045", projeto: "Shopping Vila Olímpia", value: 412000, status: "Em assinatura digital", validade: "15 dias", step: 4, total: 5 },
-    { id: "PR-2026-044", projeto: "Cond. Park Tower Itaim", value: 624000, status: "Em redação", validade: "30 dias", step: 2, total: 5 },
-  ];
+  const [list, setList] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    window.__VP_SB.sb.from('cotacoes').select('*').order('date', { ascending: false })
+      .then(({ data }) => { setList(data || []); setLoading(false); });
+  }, []);
+
+  const totalValor = list.reduce((s, p) => s + (p.value || 0), 0);
+  const fmtValorTotal = list.length > 0
+    ? (totalValor >= 1e6 ? `R$ ${(totalValor / 1e6).toFixed(1)}M` : fmtBRL(totalValor))
+    : '—';
+
   return (
     <div className="page fade-in">
       <div className="page-head">
@@ -293,39 +309,39 @@ function PropostasPage({ setRoute }) {
           <p className="page-head__sub">Wizard de 5 etapas · gera PDF + envia para assinatura digital · vincula contrato jurídico</p>
         </div>
         <div className="page-head__r">
-          <Button variant="outline" icon="download">Exportar pacote</Button>
+          <Button variant="outline" icon="download" onClick={() => window.toast("Exportar pacote — próxima fase", "info")}>Exportar pacote</Button>
           <Button variant="primary" icon="plus" onClick={() => setRoute("proposta-editor")}>Nova proposta</Button>
         </div>
       </div>
 
       <div className="grid-4" style={{ marginBottom: 20 }}>
-        <KPI label="Propostas no ar" value="18" sub="aguardando cliente" delta="-2" deltaDir="down" icon="proposal"/>
-        <KPI label="Valor proposto (mês)" value="R$ 14.2" unit="M" sub="potencial" delta="+R$ 2.8M" deltaDir="up" icon="dollar"/>
-        <KPI label="Conversão proposta" value="34" unit="%" sub="meta 30%" delta="+4pp" deltaDir="up" icon="trending"/>
-        <KPI label="Tempo médio aprovação" value="8.2" unit="d" sub="cliente" delta="-1.4d" deltaDir="up" icon="clock"/>
+        <KPI label="Propostas no ar" value={list.length} sub="aguardando cliente" icon="proposal"/>
+        <KPI label="Valor proposto" value={fmtValorTotal} sub="potencial" icon="dollar"/>
+        <KPI label="Conversão proposta" value="—" sub="sem dados suficientes" icon="trending"/>
+        <KPI label="Tempo médio aprovação" value="—" sub="sem dados suficientes" icon="clock"/>
       </div>
 
       <div className="grid-2" style={{ gap: 20 }}>
-        <Card title="Propostas em andamento" sub={`${list.length} ativos`} action={<Button variant="ghost" size="sm" icon="filter"/>}>
+        <Card title="Propostas em andamento" sub={`${list.length} registros`} action={<Button variant="ghost" size="sm" icon="filter"/>}>
           <div className="stack" style={{ gap: 12 }}>
+            {loading && <div style={{ textAlign:'center', padding:'32px 0', color:'var(--fg3)', fontSize:13 }}>Carregando…</div>}
+            {!loading && list.length === 0 && (
+              <div style={{ textAlign:'center', padding:'32px 0', color:'var(--fg3)', fontSize:13 }}>
+                Nenhuma proposta cadastrada.
+              </div>
+            )}
             {list.map((p) => (
               <div key={p.id} className="card" style={{ padding: 14, cursor: "pointer" }} onClick={() => setRoute("proposta-editor")}>
                 <div className="row sb">
                   <div>
-                    <div className="cell-main" style={{ fontSize: 14 }}>{p.projeto}</div>
-                    <div className="cell-sub">{p.id} · validade {p.validade}</div>
+                    <div className="cell-main" style={{ fontSize: 14 }}>{p.origin || p.id}</div>
+                    <div className="cell-sub">{p.id} · {p.date ? new Date(p.date).toLocaleDateString('pt-BR') : '—'}</div>
                   </div>
-                  <StatusBadge status={p.status}/>
+                  <StatusBadge status={p.status || "Em andamento"}/>
                 </div>
                 <div className="row sb" style={{ marginTop: 10 }}>
-                  <div className="cell-money mono" style={{ fontSize: 16, fontWeight: 700 }}>{fmtBRL(p.value)}</div>
-                  <div className="row gap-2">
-                    <span className="mono small" style={{ color: "var(--fg3)" }}>Etapa {p.step}/{p.total}</span>
-                    <Button variant="ghost" size="sm" iconRight="arrowRight">Editar</Button>
-                  </div>
-                </div>
-                <div className="progress" style={{ marginTop: 8 }}>
-                  <span style={{ width: (p.step / p.total * 100) + "%" }}/>
+                  <div className="cell-money mono" style={{ fontSize: 16, fontWeight: 700 }}>{fmtBRL(p.value || 0)}</div>
+                  <Button variant="ghost" size="sm" iconRight="arrowRight">Editar</Button>
                 </div>
               </div>
             ))}
@@ -365,7 +381,7 @@ function PropostasPage({ setRoute }) {
         </Card>
       </div>
 
-      <Card title="Editor de Proposta — Atalho Interno" sub="PR-2026-047 · Hospital São Luiz · resumo wizard"
+      <Card title="Editor de Proposta — Demonstrativo" sub="exemplo do wizard de 5 etapas"
         style={{ marginTop: 20 }}
         action={<Button variant="primary" size="sm" iconRight="arrowRight" onClick={() => setRoute("proposta-editor")}>Abrir editor completo</Button>}>
         <PropostaWizard/>

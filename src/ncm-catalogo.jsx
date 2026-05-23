@@ -470,27 +470,32 @@ function LogComexModal({ product, onClose }) {
 /* ============================================================
    NCM Widget — Dashboard
    ============================================================ */
-function NcmDashboardWidget({ setRoute }) {
-  const N = window.__VP_NCM;
-  const stuck = N.produtos.filter(p => p.status === "EM_PREENCHIMENTO").length;
-  const inJur = N.produtos.filter(p => p.status === "AGUARD_JURIDICO").length;
-  const ready = N.produtos.filter(p => p.status === "APROVADO").length;
+function NcmDashboardWidget({ setRoute, ncm = [] }) {
+  const stuck = ncm.filter(p => p.status === "EM_PREENCHIMENTO").length;
+  const inJur = ncm.filter(p => p.status === "AGUARD_JURIDICO").length;
+  const ready = ncm.filter(p => p.status === "APROVADO").length;
 
   return (
     <div className="ncm-widget">
       <div className="ncm-widget__title"><Icon.package size={12}/> Pendências NCM</div>
-      <div className="ncm-widget__row">
-        <Icon.warning size={14} color="var(--vp-warning)"/>
-        <span><b>{stuck}</b> fichas técnicas em preenchimento há +5 dias</span>
-      </div>
-      <div className="ncm-widget__row">
-        <Icon.warning size={14} color="var(--vp-warning)"/>
-        <span><b>{inJur}</b> produtos aguardando validação jurídica</span>
-      </div>
-      <div className="ncm-widget__row">
-        <Icon.check size={14} color="var(--vp-success)"/>
-        <span><b>{ready}</b> produto aprovado aguardando cadastro LogComex</span>
-      </div>
+      {ncm.length === 0 ? (
+        <div className="muted" style={{ padding: '12px 0', fontSize: 12, textAlign: 'center' }}>Nenhuma solicitação NCM pendente.</div>
+      ) : (
+        <>
+          {stuck > 0 && <div className="ncm-widget__row">
+            <Icon.warning size={14} color="var(--vp-warning)"/>
+            <span><b>{stuck}</b> fichas técnicas em preenchimento há +5 dias</span>
+          </div>}
+          {inJur > 0 && <div className="ncm-widget__row">
+            <Icon.warning size={14} color="var(--vp-warning)"/>
+            <span><b>{inJur}</b> produtos aguardando validação jurídica</span>
+          </div>}
+          {ready > 0 && <div className="ncm-widget__row">
+            <Icon.check size={14} color="var(--vp-success)"/>
+            <span><b>{ready}</b> produto{ready !== 1 ? "s" : ""} aprovado{ready !== 1 ? "s" : ""} aguardando cadastro LogComex</span>
+          </div>}
+        </>
+      )}
       <div className="ncm-widget__cta">
         <Button variant="ghost" size="sm" iconRight="arrowRight" onClick={() => setRoute("ncm-kanban")}>Ver todas</Button>
       </div>

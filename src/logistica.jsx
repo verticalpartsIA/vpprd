@@ -4,11 +4,20 @@
 
 /* ---------- IMPORTAÇÃO listing ---------- */
 function ImportacaoPage({ setRoute, setSubsel }) {
-  const D = window.__VP_DATA;
+  const [embarques, setEmbarques] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
   const [tab, setTab] = React.useState("embarques");
   const [filter, setFilter] = React.useState("Todos");
   const filterOptions = ["Todos", "Em trânsito", "Liberação aduaneira", "Entregue"];
-  const rows = D.embarques.filter(e => filter === "Todos" || e.status === filter);
+
+  React.useEffect(() => {
+    window.__VP_SB.sb.from('embarques').select('*').order('eta')
+      .then(({ data }) => { setEmbarques(data || []); setLoading(false); });
+  }, []);
+
+  if (loading) return <div style={{ textAlign:'center', padding:'60px 0', color:'var(--fg3)', fontSize:13 }}>Carregando…</div>;
+
+  const rows = embarques.filter(e => filter === "Todos" || e.status === filter);
   return (
     <div className="page fade-in">
       <div className="page-head">
@@ -32,7 +41,7 @@ function ImportacaoPage({ setRoute, setSubsel }) {
       </div>
 
       <Tabs tabs={[
-        { key: "embarques", label: "Embarques", icon: "ship", count: D.embarques.length },
+        { key: "embarques", label: "Embarques", icon: "ship", count: embarques.length },
         { key: "documentos", label: "Documentos & BL", icon: "fileText" },
         { key: "aduana", label: "Aduana", icon: "shield" },
       ]} active={tab} onChange={setTab}/>
@@ -61,6 +70,11 @@ function ImportacaoPage({ setRoute, setSubsel }) {
             <th></th>
           </tr></thead>
           <tbody>
+            {rows.length === 0 && (
+              <tr><td colSpan={99} style={{ textAlign:'center', padding:'48px 0', color:'var(--fg3)', fontSize:13 }}>
+                Nenhum registro cadastrado.
+              </td></tr>
+            )}
             {rows.map((e) => (
               <tr key={e.id} onClick={() => { setSubsel(e); setRoute("importacao-detail"); }}>
                 <td>
@@ -212,9 +226,18 @@ function ImportacaoDetail({ embarque, setRoute }) {
 
 /* ---------- IMPORTAÇÃO · MAPA DE NAVIOS ====================== */
 function ImportacaoRastreamento({ setRoute }) {
-  const D = window.__VP_DATA;
-  const ships = D.embarques.filter(e => e.lat !== null);
-  const [active, setActive] = React.useState(ships[0].id);
+  const [embarques, setEmbarques] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    window.__VP_SB.sb.from('embarques').select('*').order('eta')
+      .then(({ data }) => { setEmbarques(data || []); setLoading(false); });
+  }, []);
+
+  if (loading) return <div style={{ textAlign:'center', padding:'60px 0', color:'var(--fg3)', fontSize:13 }}>Carregando…</div>;
+
+  const ships = embarques.filter(e => e.lat !== null && e.lat !== undefined);
+  const [active, setActive] = React.useState(ships.length > 0 ? ships[0].id : null);
   const activeShip = ships.find(s => s.id === active);
 
   return (
@@ -226,7 +249,7 @@ function ImportacaoRastreamento({ setRoute }) {
         <div className="page-head__l">
           <div className="page-head__eyebrow"><span className="vp-rule"/>Logística · Rastreamento</div>
           <h1 className="page-head__title">Mapa Marítimo</h1>
-          <p className="page-head__sub">Posição em tempo real dos {ships.length} navios em trânsito · MarineTraffic API</p>
+          <p className="page-head__sub">Posição em tempo real dos {ships.length} navio{ships.length !== 1 ? 's' : ''} em trânsito · MarineTraffic API</p>
         </div>
         <div className="page-head__r">
           <Button variant="outline" icon="refresh">Atualizar</Button>
@@ -410,10 +433,11 @@ function RouteAndShip({ start, end, cur, ship, isActive, onClick }) {
 
 /* ---------- COMPRAS NACIONAL ============================== */
 function ComprasPage({ setRoute }) {
-  const D = window.__VP_DATA;
+  // TODO: conectar Supabase — tabela 'fretes' não mapeada; usando array vazio por ora
+  const fretes = [];
   const [filter, setFilter] = React.useState("Todos");
   const filters = ["Todos", "Em rota", "Saiu CD", "Aguardando coleta", "Entregue", "Atraso"];
-  const rows = D.fretes.filter(f => {
+  const rows = fretes.filter(f => {
     if (filter === "Todos") return true;
     if (filter === "Atraso") return f.ocorrencias > 0 || f.status === "Atraso";
     return f.status === filter;
@@ -465,6 +489,11 @@ function ComprasPage({ setRoute }) {
             <th></th>
           </tr></thead>
           <tbody>
+            {rows.length === 0 && (
+              <tr><td colSpan={99} style={{ textAlign:'center', padding:'48px 0', color:'var(--fg3)', fontSize:13 }}>
+                Nenhum frete registrado.
+              </td></tr>
+            )}
             {rows.map((f) => (
               <tr key={f.id}>
                 <td>
@@ -499,9 +528,9 @@ function ComprasPage({ setRoute }) {
 
 /* ---------- EMAIL INBOX (Importação + Compras) ============== */
 function EmailInbox({ kind, setRoute }) {
-  const D = window.__VP_DATA;
-  const emails = kind === "compras" ? D.emails.compras : D.emails.importacao;
-  const [activeId, setActiveId] = React.useState(emails[0].id);
+  // TODO: conectar Supabase — emails sincronizados via IMAP; usando array vazio por ora
+  const emails = [];
+  const [activeId, setActiveId] = React.useState(null);
   const [folder, setFolder] = React.useState("inbox");
   const active = emails.find(e => e.id === activeId);
 
@@ -559,6 +588,11 @@ function EmailInbox({ kind, setRoute }) {
             <span>{folder === "inbox" ? "Caixa de entrada" : folder}</span>
             <span className="mono">{emails.length}</span>
           </div>
+          {emails.length === 0 && (
+            <div style={{ textAlign:'center', padding:'48px 16px', color:'var(--fg3)', fontSize:13 }}>
+              Nenhuma mensagem encontrada.
+            </div>
+          )}
           {emails.map((m) => (
             <div key={m.id} className={"inbox__item " + (m.unread ? "unread " : "") + (activeId === m.id ? "is-active" : "")} onClick={() => setActiveId(m.id)}>
               <div className="from">
@@ -661,7 +695,7 @@ function EmailBody({ kind, id }) {
         <p>Best regards,<br/><b>Liu Mei</b> · Sales Manager<br/>Tianjin Control Systems Co., Ltd.</p>
       </>
     );
-    return <p>Mensagem completa não exibida neste mock.</p>;
+    return <p>Nenhuma mensagem encontrada.</p>;
   }
   if (id === "em-6") return (
     <>
@@ -685,7 +719,7 @@ function EmailBody({ kind, id }) {
       <p>Att,<br/><b>Setor de Ocorrências — TransLog SP</b></p>
     </>
   );
-  return <p>Mensagem completa não exibida neste mock.</p>;
+  return <p>Nenhuma mensagem encontrada.</p>;
 }
 
 Object.assign(window, { ImportacaoPage, ImportacaoDetail, ImportacaoRastreamento, ComprasPage, EmailInbox });

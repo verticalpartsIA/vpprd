@@ -4,10 +4,18 @@
 
 /* ---------- ENGENHARIA ---------- */
 function EngenhariaPage({ setRoute }) {
-  const D = window.__VP_DATA;
+  const [projetos, setProjetos] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
   const [engTab, setEngTab] = React.useState("laudo");
   // Stable photo IDs so they don't shuffle on re-render
   const photoIds = React.useMemo(() => ([3142, 5891, 7204, 2057, 4396, 6128]), []);
+
+  React.useEffect(() => {
+    window.__VP_SB.sb.from('projetos').select('*')
+      .then(({ data }) => { setProjetos(data || []); setLoading(false); });
+  }, []);
+
+  if (loading) return <div style={{ textAlign:'center', padding:'60px 0', color:'var(--fg3)', fontSize:13 }}>Carregando…</div>;
   return (
     <div className="page fade-in">
       <div className="page-head">
@@ -30,9 +38,14 @@ function EngenhariaPage({ setRoute }) {
       </div>
 
       <div className="grid-2" style={{ gap: 20 }}>
-        <Card title="Projetos abertos" sub={`${D.projetosEng.length} ativos`}>
+        <Card title="Projetos abertos" sub={`${projetos.length} ativos`}>
           <div className="stack" style={{ gap: 12 }}>
-            {D.projetosEng.map((p) => (
+            {projetos.length === 0 && (
+              <div style={{ textAlign:'center', padding:'48px 0', color:'var(--fg3)', fontSize:13 }}>
+                Nenhum registro cadastrado.
+              </div>
+            )}
+            {projetos.map((p) => (
               <div key={p.id} style={{ background: "#fff", border: "1px solid var(--border)", padding: 14, cursor: "pointer", position: "relative" }}>
                 <span style={{ position: "absolute", top: 0, left: 0, width: 24, height: 3, background: "var(--vp-yellow)" }}/>
                 <div className="row sb">
@@ -94,10 +107,19 @@ function EngenhariaPage({ setRoute }) {
 
 /* ---------- JURÍDICO — Contract page redactor =================== */
 function JuridicoPage({ setRoute }) {
-  const D = window.__VP_DATA;
+  const [contratos, setContratos] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
   const [filter, setFilter] = React.useState("Todos");
   const filters = ["Todos", "Aguardando assinatura", "Em redação", "Em assinatura digital", "Assinado"];
-  const rows = D.contratos.filter(c => filter === "Todos" || c.status === filter);
+
+  React.useEffect(() => {
+    window.__VP_SB.sb.from('contratos').select('*').order('issued_date', { ascending: false })
+      .then(({ data }) => { setContratos(data || []); setLoading(false); });
+  }, []);
+
+  if (loading) return <div style={{ textAlign:'center', padding:'60px 0', color:'var(--fg3)', fontSize:13 }}>Carregando…</div>;
+
+  const rows = contratos.filter(c => filter === "Todos" || c.status === filter);
   return (
     <div className="page fade-in">
       <div className="page-head">
@@ -144,11 +166,16 @@ function JuridicoPage({ setRoute }) {
             <th></th>
           </tr></thead>
           <tbody>
+            {rows.length === 0 && (
+              <tr><td colSpan={99} style={{ textAlign:'center', padding:'48px 0', color:'var(--fg3)', fontSize:13 }}>
+                Nenhum registro cadastrado.
+              </td></tr>
+            )}
             {rows.map((c) => (
               <tr key={c.id}>
                 <td>
                   <div className="cell-main">{c.id}</div>
-                  <div className="cell-sub">{fmtDate(c.issued)} · {c.projeto}</div>
+                  <div className="cell-sub">{fmtDate(c.issued || c.issued_date)} · {c.projeto}</div>
                 </td>
                 <td>{c.client}</td>
                 <td><span className="cell-num">{c.pages}</span></td>

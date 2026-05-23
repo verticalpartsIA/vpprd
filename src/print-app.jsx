@@ -31,14 +31,15 @@ const PRINT_SCREENS = [
 function noop() {}
 
 /* Render a single page based on screen id */
+/* NOTE: print mode — dados de detalhe passados como null; componentes exibem EmptyStateRedirect */
 function renderPrintPage(scr) {
-  const D = window.__VP_DATA;
+  // TODO: receber dados via props se impressão precisar de registros reais
   switch (scr.id) {
     case "dashboard":      return <Dashboard role={scr.role} setRoute={noop}/>;
     case "leads":          return <LeadsPage setRoute={noop} setSubsel={noop}/>;
-    case "lead-detail":    return <LeadDetail lead={D.leads[0]} setRoute={noop}/>;
+    case "lead-detail":    return <LeadDetail lead={null} setRoute={noop}/>;
     case "cotacoes":       return <CotacoesPage setRoute={noop} setSubsel={noop}/>;
-    case "cotacao-detail": return <CotacaoDetail cot={D.cotacoes[1]} setRoute={noop}/>;
+    case "cotacao-detail": return <CotacaoDetail cot={null} setRoute={noop}/>;
     case "precificacao":   return <PrecificacaoPage setRoute={noop}/>;
     case "propostas":      return <PropostasPage setRoute={noop}/>;
     case "proposta-editor": return <PropostaEditor setRoute={noop}/>;
@@ -46,7 +47,7 @@ function renderPrintPage(scr) {
     case "juridico":       return <JuridicoPage setRoute={noop}/>;
     case "instalacao":     return <InstalacaoPage/>;
     case "importacao":     return <ImportacaoPage setRoute={noop} setSubsel={noop}/>;
-    case "importacao-detail": return <ImportacaoDetail embarque={D.embarques[0]} setRoute={noop}/>;
+    case "importacao-detail": return <ImportacaoDetail embarque={null} setRoute={noop}/>;
     case "importacao-rastreamento": return <ImportacaoRastreamento setRoute={noop}/>;
     case "importacao-email": return <EmailInbox kind="importacao" setRoute={noop}/>;
     case "compras":        return <ComprasPage setRoute={noop}/>;

@@ -4,27 +4,47 @@
 
 /* ---------- LEADS ---------- */
 function LeadsPage({ setRoute, setSubsel }) {
-  const D = window.__VP_DATA;
+  const [leads, setLeads] = React.useState(null);
   const [status, setStatus] = React.useState("Todos");
   const [search, setSearch] = React.useState("");
   const [owner, setOwner] = React.useState("Todos");
 
+  React.useEffect(() => {
+    window.__VP_SB.sb.from('leads').select('*').order('date', { ascending: false })
+      .then(({ data }) => setLeads(data || []));
+  }, []);
+
   const statuses = ["Todos", "Em qualificação", "Aguardando cotação", "Proposta enviada", "Negociação", "Convertido", "Sem retorno"];
-  const owners = ["Todos", "Letícia M.", "Bruno P.", "Daniel O."];
-  const rows = D.leads.filter(l => {
+  const allLeads = leads || [];
+  const owners = ["Todos", ...Array.from(new Set(allLeads.filter(l => l.owner).map(l => l.owner))).sort()];
+
+  const rows = allLeads.filter(l => {
     if (status !== "Todos" && l.status !== status) return false;
     if (owner !== "Todos" && l.owner !== owner) return false;
-    if (search && !(l.building + l.contact + l.equip).toLowerCase().includes(search.toLowerCase())) return false;
+    if (search && !((l.building || "") + (l.contact || "") + (l.equip || "")).toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
 
   const stats = {
-    total: D.leads.length,
-    qualif: D.leads.filter(l => l.status === "Em qualificação").length,
-    proposta: D.leads.filter(l => l.status === "Proposta enviada").length,
-    convertido: D.leads.filter(l => l.status === "Convertido").length,
-    valor: D.leads.reduce((a, l) => a + l.value, 0),
+    total: allLeads.length,
+    qualif: allLeads.filter(l => l.status === "Em qualificação").length,
+    proposta: allLeads.filter(l => l.status === "Proposta enviada").length,
+    valor: allLeads.reduce((a, l) => a + (l.value || 0), 0),
   };
+
+  if (leads === null) {
+    return (
+      <div className="page fade-in">
+        <div className="page-head">
+          <div className="page-head__l">
+            <div className="page-head__eyebrow"><span className="vp-rule"/>Comercial · Leads</div>
+            <h1 className="page-head__title">Pipeline de Leads</h1>
+          </div>
+        </div>
+        <div style={{ textAlign: "center", padding: "60px 0", color: "var(--fg3)", fontSize: 13 }}>Carregando leads…</div>
+      </div>
+    );
+  }
 
   return (
     <div className="page fade-in">
@@ -32,20 +52,20 @@ function LeadsPage({ setRoute, setSubsel }) {
         <div className="page-head__l">
           <div className="page-head__eyebrow"><span className="vp-rule"/>Comercial · Leads</div>
           <h1 className="page-head__title">Pipeline de Leads</h1>
-          <p className="page-head__sub">{D.leads.length} leads ativos · pipeline {fmtBRL(stats.valor)} · conversão média 27%</p>
+          <p className="page-head__sub">{allLeads.length} leads ativos · pipeline {fmtBRL(stats.valor)} · conversão média 27%</p>
         </div>
         <div className="page-head__r">
-          <Button variant="outline" icon="download">Exportar</Button>
-          <Button variant="outline" icon="filter">Filtros avançados</Button>
-          <Button variant="primary" icon="plus">Novo Lead</Button>
+          <Button variant="outline" icon="download" onClick={() => window.toast('Exportação em breve.', 'info')}>Exportar</Button>
+          <Button variant="outline" icon="filter" onClick={() => window.toast('Filtros avançados em breve.', 'info')}>Filtros avançados</Button>
+          <Button variant="primary" icon="plus" onClick={() => window.toast('Cadastro de lead em breve.', 'info')}>Novo Lead</Button>
         </div>
       </div>
 
       <div className="grid-4" style={{ marginBottom: 20 }}>
-        <KPI label="Leads ativos" value={stats.total} sub="mês" delta="+12" deltaDir="up" icon="flag"/>
-        <KPI label="Em qualificação" value={stats.qualif} sub="hot leads" delta="+3" deltaDir="up" icon="zap"/>
-        <KPI label="Propostas no ar" value={stats.proposta} sub="aguardando" delta="-2" deltaDir="down" icon="fileText"/>
-        <KPI label="Valor pipeline" value="R$ 8.9" unit="M" sub="potencial" delta="+R$ 1.2M" deltaDir="up" icon="dollar"/>
+        <KPI label="Leads ativos" value={stats.total} sub="mês" delta={stats.total > 0 ? `+${stats.total}` : "0"} deltaDir="up" icon="flag"/>
+        <KPI label="Em qualificação" value={stats.qualif} sub="hot leads" delta={`+${stats.qualif}`} deltaDir="up" icon="zap"/>
+        <KPI label="Propostas no ar" value={stats.proposta} sub="aguardando" delta="0" deltaDir="up" icon="fileText"/>
+        <KPI label="Valor pipeline" value={fmtBRL(stats.valor)} sub="potencial" delta="—" deltaDir="up" icon="dollar"/>
       </div>
 
       <div className="tbar">
@@ -80,7 +100,15 @@ function LeadsPage({ setRoute, setSubsel }) {
             <th></th>
           </tr></thead>
           <tbody>
-            {rows.map(l => (
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={10} style={{ textAlign: "center", padding: "48px 0", color: "var(--fg3)", fontSize: 13 }}>
+                  {search || status !== "Todos" || owner !== "Todos"
+                    ? "Nenhum lead encontrado com os filtros aplicados."
+                    : "Nenhum lead cadastrado. Clique em \"Novo Lead\" para começar."}
+                </td>
+              </tr>
+            ) : rows.map(l => (
               <tr key={l.id} onClick={() => { setSubsel(l); setRoute("lead-detail"); }}>
                 <td><span className="mono" style={{ fontSize: 11, color: "var(--fg3)" }}>{l.id}</span></td>
                 <td>
@@ -96,8 +124,8 @@ function LeadsPage({ setRoute, setSubsel }) {
                 <td><StatusBadge status={l.status}/></td>
                 <td>
                   <div className="row gap-2">
-                    <div className="avatar sm">{l.owner.split(" ").map(w => w[0]).join("").slice(0,2)}</div>
-                    <span style={{ fontSize: 12 }}>{l.owner}</span>
+                    <div className="avatar sm">{(l.owner || "?").split(" ").map(w => w[0]).join("").slice(0,2)}</div>
+                    <span style={{ fontSize: 12 }}>{l.owner || "—"}</span>
                   </div>
                 </td>
                 <td className="cell-money">{fmtBRL(l.value)}</td>
@@ -113,11 +141,11 @@ function LeadsPage({ setRoute, setSubsel }) {
       </div>
 
       <div className="row sb" style={{ marginTop: 14, fontSize: 12, color: "var(--fg3)" }}>
-        <span>Exibindo <b>{rows.length}</b> de <b>{D.leads.length}</b> leads</span>
+        <span>Exibindo <b>{rows.length}</b> de <b>{allLeads.length}</b> leads</span>
         <div className="row gap-2">
-          <Button variant="ghost" size="sm" icon="chevLeft"/>
-          <span className="mono">Pág. 1 / 6</span>
-          <Button variant="ghost" size="sm" icon="chevRight"/>
+          <Button variant="ghost" size="sm" icon="chevLeft" onClick={() => window.toast('Paginação em breve.', 'info')}/>
+          <span className="mono">Pág. 1 / {Math.max(1, Math.ceil(allLeads.length / 15))}</span>
+          <Button variant="ghost" size="sm" icon="chevRight" onClick={() => window.toast('Paginação em breve.', 'info')}/>
         </div>
       </div>
     </div>
@@ -134,13 +162,12 @@ function LeadDetail({ lead, setRoute }) {
       ctaLabel="Ir para Listagem de Leads"
       onCta={() => setRoute("leads")}/>;
   }
-  const D = window.__VP_DATA;
   const history = [
     { t: "Lead criado via Site (formulário público)", date: "12/mai 09:14", who: "Sistema", icon: "plus" },
-    { t: "Contato inicial — WhatsApp respondido pelo síndico", date: "12/mai 10:42", who: "Letícia M.", icon: "message" },
-    { t: "Cotação CT-2026-118 solicitada para fornecedor Suzhou Vertical", date: "12/mai 14:20", who: "Letícia M.", icon: "globe" },
-    { t: "Visita técnica agendada — 15/mai 14h", date: "12/mai 15:00", who: "Daniel O.", icon: "calendar" },
-    { t: "Email follow-up enviado com prévia da proposta", date: "13/mai 08:30", who: "Letícia M.", icon: "mail" },
+    { t: "Contato inicial — WhatsApp respondido pelo síndico", date: "12/mai 10:42", who: "Comercial", icon: "message" },
+    { t: "Cotação CT-2026-118 solicitada para fornecedor Suzhou Vertical", date: "12/mai 14:20", who: "Comercial", icon: "globe" },
+    { t: "Visita técnica agendada — 15/mai 14h", date: "12/mai 15:00", who: "Engenharia", icon: "calendar" },
+    { t: "Email follow-up enviado com prévia da proposta", date: "13/mai 08:30", who: "Comercial", icon: "mail" },
   ];
 
   return (
@@ -156,12 +183,12 @@ function LeadDetail({ lead, setRoute }) {
           <div className="row gap-3" style={{ marginTop: 4 }}>
             <StatusBadge status={lead.status}/>
             <Badge variant={lead.priority === "Alta" ? "danger" : "warning"} dot>{lead.priority}</Badge>
-            <span className="muted small">Última atualização: hoje 08:30 por Letícia M.</span>
+            <span className="muted small">Última atualização: —</span>
           </div>
         </div>
         <div className="page-head__r">
-          <Button variant="outline" icon="message">WhatsApp</Button>
-          <Button variant="outline" icon="mail">Email</Button>
+          <Button variant="outline" icon="message" onClick={() => window.toast('Integração WhatsApp em breve.', 'info')}>WhatsApp</Button>
+          <Button variant="outline" icon="mail" onClick={() => window.toast('Integração e-mail em breve.', 'info')}>Email</Button>
           <Button variant="primary" icon="calculator" onClick={() => setRoute("precificacao")}>Precificar</Button>
         </div>
       </div>
@@ -206,7 +233,7 @@ function LeadDetail({ lead, setRoute }) {
           <Card title="Próximos passos sugeridos" sub="orquestração automática">
             <div className="stack" style={{ gap: 10 }}>
               <SuggestedStep icon="globe" label="Aguardar retorno cotação China" sub="CT-2026-118 · prazo 17/mai" status="current"/>
-              <SuggestedStep icon="ruler" label="Visita técnica e laudo preliminar" sub="agendado 15/mai · Daniel O." status="next"/>
+              <SuggestedStep icon="ruler" label="Visita técnica e laudo preliminar" sub="agendado 15/mai · Engenharia" status="next"/>
               <SuggestedStep icon="calculator" label="Calcular precificação final" sub="após laudo + cotação" status="future"/>
               <SuggestedStep icon="proposal" label="Enviar proposta + minuta jurídica" sub="estimativa 22/mai" status="future"/>
             </div>
@@ -225,8 +252,8 @@ function LeadDetail({ lead, setRoute }) {
             <KvBlock label="Telefone" value={lead.phone} mono/>
             <KvBlock label="Email" value={lead.email} mono/>
             <div className="row gap-2" style={{ marginTop: 14 }}>
-              <Button variant="secondary" size="sm" icon="message">WhatsApp</Button>
-              <Button variant="outline" size="sm" icon="mail">Email</Button>
+              <Button variant="secondary" size="sm" icon="message" onClick={() => window.toast('Integração WhatsApp em breve.', 'info')}>WhatsApp</Button>
+              <Button variant="outline" size="sm" icon="mail" onClick={() => window.toast('Integração e-mail em breve.', 'info')}>Email</Button>
             </div>
           </Card>
 
@@ -287,10 +314,19 @@ function SuggestedStep({ icon, label, sub, status }) {
 
 /* ---------- COTAÇÕES China ---------- */
 function CotacoesPage({ setRoute, setSubsel }) {
-  const D = window.__VP_DATA;
+  const [cotacoes, setCotacoes] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
   const [status, setStatus] = React.useState("Todos");
   const statuses = ["Todos", "Aguardando China", "Recebida", "Em análise", "Aprovada"];
-  const rows = D.cotacoes.filter(c => status === "Todos" || c.status === status);
+
+  React.useEffect(() => {
+    window.__VP_SB.sb.from('cotacoes').select('*').order('date', { ascending: false })
+      .then(({ data }) => { setCotacoes(data || []); setLoading(false); });
+  }, []);
+
+  if (loading) return <div style={{ textAlign:'center', padding:'60px 0', color:'var(--fg3)', fontSize:13 }}>Carregando…</div>;
+
+  const rows = cotacoes.filter(c => status === "Todos" || c.status === status);
   return (
     <div className="page fade-in">
       <div className="page-head">
@@ -333,6 +369,11 @@ function CotacoesPage({ setRoute, setSubsel }) {
             <th></th>
           </tr></thead>
           <tbody>
+            {rows.length === 0 && (
+              <tr><td colSpan={99} style={{ textAlign:'center', padding:'48px 0', color:'var(--fg3)', fontSize:13 }}>
+                Nenhum registro cadastrado.
+              </td></tr>
+            )}
             {rows.map(c => (
               <tr key={c.id} onClick={() => { setSubsel(c); setRoute("cotacao-detail"); }}>
                 <td><span className="mono" style={{ fontSize: 11, color: "var(--fg3)" }}>{c.id}</span></td>
@@ -365,7 +406,7 @@ function CotacoesPage({ setRoute, setSubsel }) {
 }
 
 function daysLeft(dateStr) {
-  const now = new Date("2026-05-13T12:00:00");
+  const now = new Date();
   const t = new Date(dateStr + "T12:00:00");
   return Math.round((t - now) / (1000 * 60 * 60 * 24));
 }
@@ -380,11 +421,9 @@ function CotacaoDetail({ cot, setRoute }) {
       ctaLabel="Ir para Cotações China"
       onCta={() => setRoute("cotacoes")}/>;
   }
-  const D = window.__VP_DATA;
-  const items = D.parts.slice(0, cot.items > D.parts.length ? D.parts.length : cot.items).map((p, i) => ({
-    ...p, qty: [4, 2, 8, 1, 6, 12, 3][i % 7], unitPrice: [820, 540, 38, 1240, 1080, 96, 220][i % 7],
-  }));
-  const totalUSD = items.reduce((s, it) => s + it.qty * it.unitPrice, 0);
+  // TODO: conectar Supabase — itens da cotação virão de tabela de itens futuramente
+  const items = [];
+  const totalUSD = 0;
 
   return (
     <div className="page fade-in">
@@ -456,7 +495,7 @@ function CotacaoDetail({ cot, setRoute }) {
                 <div className="timeline__node"/>
                 <div>
                   <div className="timeline__title">Solicitação enviada</div>
-                  <div className="timeline__sub">{fmtDate(cot.date)} 14:20 BRT · Letícia M.</div>
+                  <div className="timeline__sub">{fmtDate(cot.date)} · Comercial</div>
                 </div>
                 <div className="timeline__meta">100%</div>
                 <div className="timeline__rail"/>
@@ -483,7 +522,7 @@ function CotacaoDetail({ cot, setRoute }) {
                 <div className="timeline__node"/>
                 <div>
                   <div className="timeline__title">Aprovação interna</div>
-                  <div className="timeline__sub">Letícia M. + Cláudia B.</div>
+                  <div className="timeline__sub">Equipe Comercial</div>
                 </div>
                 <div className="timeline__meta">—</div>
               </div>

@@ -4,7 +4,18 @@
    ============================================================ */
 
 function FinanceiroPage() {
-  const D = window.__VP_DATA;
+  const [gatilhos, setGatilhos] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    window.__VP_SB.sb.from('gatilhos').select('*').order('due_date')
+      .then(({ data }) => { setGatilhos(data || []); setLoading(false); });
+  }, []);
+
+  if (loading) return <div style={{ textAlign:'center', padding:'60px 0', color:'var(--fg3)', fontSize:13 }}>Carregando…</div>;
+
+  const urgentes = gatilhos.filter(g => (g.days_left ?? g.daysLeft ?? 99) <= 2);
+
   return (
     <div className="page fade-in">
       <div className="page-head">
@@ -20,24 +31,31 @@ function FinanceiroPage() {
       </div>
 
       <div className="grid-4" style={{ marginBottom: 20 }}>
-        <KPI label="A receber 30d" value="R$ 2.4" unit="M" sub="12 contratos" delta="+R$ 380k" deltaDir="up" icon="dollar"/>
-        <KPI label="Gatilhos próx. 7d" value="11" sub="atenção" delta="+4" deltaDir="up" icon="zap"/>
-        <KPI label="Em atraso" value="2" sub="ação urgente" delta="+1" deltaDir="down" icon="warning"/>
-        <KPI label="Recebido (mês)" value="R$ 4.8" unit="M" sub="abril 26" delta="+18%" deltaDir="up" icon="trending"/>
+        <KPI label="A receber 30d" value="—" sub="contratos" delta="—" deltaDir="up" icon="dollar"/>
+        <KPI label="Gatilhos próx. 7d" value={gatilhos.filter(g => (g.days_left ?? g.daysLeft ?? 99) <= 7 && (g.days_left ?? g.daysLeft ?? 99) > 0).length} sub="atenção" delta="—" deltaDir="up" icon="zap"/>
+        <KPI label="Em atraso" value={gatilhos.filter(g => (g.days_left ?? g.daysLeft ?? 0) < 0).length} sub="ação urgente" delta="—" deltaDir="down" icon="warning"/>
+        <KPI label="Recebido (mês)" value="—" sub="—" delta="—" deltaDir="up" icon="trending"/>
       </div>
 
-      <div className="alert danger" style={{ marginBottom: 20 }}>
-        <Icon.warning/>
-        <div style={{ flex: 1 }}>
-          <div className="alert__title">2 gatilhos vencem em até 2 dias</div>
-          <div className="alert__sub">Cond. Park Tower (R$ 144k) e Ed. Itacolomi (R$ 280k) precisam ser confirmados até 15/mai/26.</div>
+      {urgentes.length > 0 && (
+        <div className="alert danger" style={{ marginBottom: 20 }}>
+          <Icon.warning/>
+          <div style={{ flex: 1 }}>
+            <div className="alert__title">{urgentes.length} gatilho{urgentes.length > 1 ? 's' : ''} vence{urgentes.length === 1 ? '' : 'm'} em até 2 dias</div>
+            <div className="alert__sub">Verifique os gatilhos abaixo e confirme os pagamentos pendentes.</div>
+          </div>
+          <Button variant="secondary" size="sm" iconRight="arrowRight">Ver agora</Button>
         </div>
-        <Button variant="secondary" size="sm" iconRight="arrowRight">Ver agora</Button>
-      </div>
+      )}
 
-      <Card title="Gatilhos Ativos" sub={`${D.gatilhos.length} projetos · prazo reverso calculado a partir da instalação`}>
+      <Card title="Gatilhos Ativos" sub={`${gatilhos.length} projetos · prazo reverso calculado a partir da instalação`}>
         <div className="stack" style={{ gap: 14 }}>
-          {D.gatilhos.map((g) => (
+          {gatilhos.length === 0 && (
+            <div style={{ textAlign:'center', padding:'48px 0', color:'var(--fg3)', fontSize:13 }}>
+              Nenhum registro cadastrado.
+            </div>
+          )}
+          {gatilhos.map((g) => (
             <GatilhoCard key={g.id} g={g}/>
           ))}
         </div>
@@ -103,8 +121,20 @@ function GatilhoCard({ g }) {
 
 /* ---------- COMISSÕES ---------- */
 function ComissoesPage() {
-  const D = window.__VP_DATA;
-  const total = D.comissoes.reduce((a, c) => a + c.comissao, 0);
+  const [comissoes, setComissoes] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    window.__VP_SB.sb.from('comissoes').select('*').order('id')
+      .then(({ data }) => { setComissoes(data || []); setLoading(false); });
+  }, []);
+
+  if (loading) return <div style={{ textAlign:'center', padding:'60px 0', color:'var(--fg3)', fontSize:13 }}>Carregando…</div>;
+
+  const total = comissoes.reduce((a, c) => a + (c.comissao || 0), 0);
+  const totalAprovado = comissoes.filter(c => c.status === "Aprovado").reduce((a, c) => a + (c.comissao || 0), 0);
+  const totalAguardando = comissoes.filter(c => c.status !== "Aprovado" && c.status !== "Pago").reduce((a, c) => a + (c.comissao || 0), 0);
+
   return (
     <div className="page fade-in">
       <div className="page-head">
@@ -120,13 +150,13 @@ function ComissoesPage() {
       </div>
 
       <div className="grid-4" style={{ marginBottom: 20 }}>
-        <KPI label="Total comissões Q2" value="R$ 279" unit="k" sub="5 vendedores" delta="+R$ 42k" deltaDir="up" icon="award"/>
-        <KPI label="Aprovado" value="R$ 121" unit="k" sub="liberado" delta="+R$ 32k" deltaDir="up" icon="check"/>
-        <KPI label="Aguardando" value="R$ 158" unit="k" sub="trigger pendente" delta="+R$ 10k" deltaDir="up" icon="clock"/>
-        <KPI label="Maior comissão" value="R$ 112" unit="k" sub="Daniel O." delta="—" deltaDir="flat" icon="award"/>
+        <KPI label="Total comissões Q2" value={fmtBRL(total)} sub={`${comissoes.length} colaboradores`} delta="—" deltaDir="up" icon="award"/>
+        <KPI label="Aprovado" value={fmtBRL(totalAprovado)} sub="liberado" delta="—" deltaDir="up" icon="check"/>
+        <KPI label="Aguardando" value={fmtBRL(totalAguardando)} sub="trigger pendente" delta="—" deltaDir="up" icon="clock"/>
+        <KPI label="Maior comissão" value={comissoes.length > 0 ? fmtBRL(Math.max(...comissoes.map(c => c.comissao || 0))) : "—"} sub="—" delta="—" deltaDir="flat" icon="award"/>
       </div>
 
-      <Card title="Resumo por vendedor" sub={`${D.comissoes.length} colaboradores · pagamento dia 10`}>
+      <Card title="Resumo por vendedor" sub={`${comissoes.length} colaboradores · pagamento dia 10`}>
         <div className="table-wrap" style={{ border: 0 }}>
           <table className="t">
             <thead><tr>
@@ -140,11 +170,16 @@ function ComissoesPage() {
               <th></th>
             </tr></thead>
             <tbody>
-              {D.comissoes.map((c, i) => (
-                <tr key={c.vendedor}>
+              {comissoes.length === 0 && (
+                <tr><td colSpan={99} style={{ textAlign:'center', padding:'48px 0', color:'var(--fg3)', fontSize:13 }}>
+                  Nenhum registro cadastrado.
+                </td></tr>
+              )}
+              {comissoes.map((c, i) => (
+                <tr key={c.id || c.vendedor}>
                   <td>
                     <div className="row gap-3">
-                      <div className="avatar">{c.vendedor.split(" ").map(w => w[0]).join("").slice(0,2)}</div>
+                      <div className="avatar">{(c.vendedor || "?").split(" ").map(w => w[0]).join("").slice(0,2)}</div>
                       <div>
                         <div className="cell-main">{c.vendedor}</div>
                         <div className="cell-sub">{c.role}</div>
@@ -184,14 +219,11 @@ function ComissoesPage() {
 
 /* ---------- NOTIFICAÇÕES ---------- */
 function NotificacoesPage({ setRoute }) {
-  const D = window.__VP_DATA;
+  // TODO: conectar Supabase — tabela de notificações não mapeada ainda
   const [filter, setFilter] = React.useState("Todas");
   const filters = ["Todas", "Não lidas", "Menções", "Aprovações"];
+  const notifications = [];
   const groups = {};
-  D.notifications.forEach((n) => {
-    const grp = n.time.includes("agora") || n.time.includes("min") || n.time.includes("h") && !n.time.includes("ontem") ? "Hoje" : n.time === "ontem" ? "Ontem" : "Anteriores";
-    (groups[grp] = groups[grp] || []).push(n);
-  });
 
   const ICON_MAP = { "user-plus": "users", "check": "check", "ship": "ship", "mail": "mail", "at-sign": "at", "dollar": "dollar", "calendar": "calendar" };
 
@@ -218,6 +250,11 @@ function NotificacoesPage({ setRoute }) {
       </div>
 
       <div className="table-wrap" style={{ padding: 0 }}>
+        {Object.entries(groups).length === 0 && (
+          <div style={{ textAlign:'center', padding:'48px 0', color:'var(--fg3)', fontSize:13 }}>
+            Nenhuma notificação encontrada.
+          </div>
+        )}
         {Object.entries(groups).map(([grp, items]) => (
           <div key={grp}>
             <div style={{ padding: "10px 20px", background: "var(--vp-gray-100)", fontSize: 10, fontWeight: 800, letterSpacing: ".18em", textTransform: "uppercase", color: "var(--fg2)", borderBottom: "1px solid var(--border)" }}>{grp}</div>

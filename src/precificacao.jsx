@@ -4,12 +4,27 @@
    ============================================================ */
 
 function PrecificacaoPage({ setRoute }) {
-  // Mock list view that goes directly to one detail
-  const D = window.__VP_DATA;
-  const items = D.projetos.map((p) => ({
-    ...p, status: ["Em cálculo", "Versão final", "Aprovada", "Em cálculo", "Aprovada"][D.projetos.indexOf(p)],
-    margem: [32, 28, 35, 38, 31][D.projetos.indexOf(p)],
-    versions: [4, 7, 3, 1, 5][D.projetos.indexOf(p)],
+  const [projetos, setProjetos] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    // Busca clientes convertidos como base de precificação
+    window.__VP_SB.sb.from('leads').select('id,building,contact,value').eq('status', 'Convertido')
+      .then(({ data }) => { setProjetos(data || []); setLoading(false); });
+  }, []);
+
+  if (loading) return <div style={{ textAlign:'center', padding:'60px 0', color:'var(--fg3)', fontSize:13 }}>Carregando…</div>;
+
+  const statusArr = ["Em cálculo", "Versão final", "Aprovada", "Em cálculo", "Aprovada"];
+  const margemArr = [32, 28, 35, 38, 31];
+  const versionsArr = [4, 7, 3, 1, 5];
+  const items = projetos.map((p, idx) => ({
+    ...p,
+    name: p.building || p.name,
+    client: p.contact || p.client,
+    status: statusArr[idx % statusArr.length],
+    margem: margemArr[idx % margemArr.length],
+    versions: versionsArr[idx % versionsArr.length],
   }));
   return (
     <div className="page fade-in">
@@ -39,6 +54,11 @@ function PrecificacaoPage({ setRoute }) {
             <th>Status</th><th></th>
           </tr></thead>
           <tbody>
+            {items.length === 0 && (
+              <tr><td colSpan={99} style={{ textAlign:'center', padding:'48px 0', color:'var(--fg3)', fontSize:13 }}>
+                Nenhum registro cadastrado.
+              </td></tr>
+            )}
             {items.map((p) => (
               <tr key={p.id} onClick={() => setRoute("precificacao-detail")}>
                 <td>
@@ -258,7 +278,6 @@ function ImpostoRow({ label, pct, setPct, valor }) {
 
 /* ---------- PROPOSTAS (Wizard + PDF preview) ---------- */
 function PropostasPage({ setRoute }) {
-  const D = window.__VP_DATA;
   const list = [
     { id: "PR-2026-047", projeto: "Hospital São Luiz", value: 1840000, status: "Em redação", validade: "30 dias", step: 3, total: 5 },
     { id: "PR-2026-046", projeto: "Ed. Faria Lima Plaza", value: 1180000, status: "Aprovado", validade: "30 dias", step: 5, total: 5 },

@@ -46,38 +46,6 @@ function GanttChart({ projetos, onClick, today = 60 }) {
   );
 }
 
-const MOCK_TASKS = {
-  comercial: [
-    { t: "Ligar Cond. Park Tower — André Pessoa",       time: "Hoje 14h",  prio: "Alta",  module: "Leads" },
-    { t: "Enviar proposta Hospital São Luiz",           time: "Hoje 17h",  prio: "Alta",  module: "Propostas" },
-    { t: "Follow-up Shopping Vila Olímpia",             time: "Amanhã 10h",prio: "Média", module: "Leads" },
-    { t: "Revisar versão 3 da precificação ENG-148",   time: "Amanhã",    prio: "Média", module: "Precificação" },
-  ],
-  engenharia: [
-    { t: "Visita técnica Aeroporto SBSP",               time: "17/mai 9h", prio: "Alta",  module: "Engenharia" },
-    { t: "Concluir laudo Hospital São Luiz",            time: "Hoje",      prio: "Alta",  module: "Engenharia" },
-    { t: "Aprovar BOM Park Tower modernização",         time: "Amanhã",    prio: "Média", module: "Engenharia" },
-    { t: "Reunião kickoff Cyrela Itacolomi",            time: "16/mai 16h",prio: "Média", module: "Instalação" },
-  ],
-  financeiro: [
-    { t: "Confirmar pagamento entrada Ed. Itacolomi",   time: "Hoje",      prio: "Alta",  module: "Financeiro" },
-    { t: "Liberar comissões Q1/26",                    time: "Hoje",      prio: "Alta",  module: "Comissões" },
-    { t: "Conciliar invoice CT-2026-116 (USD)",        time: "Amanhã",    prio: "Média", module: "Importação" },
-    { t: "Validar gatilho 50% Hospital São Luiz",      time: "22/mai",    prio: "Média", module: "Financeiro" },
-  ],
-  admin: [
-    { t: "Reunião gerencial semanal",                  time: "Hoje 16h",  prio: "Alta",  module: "Geral" },
-    { t: "Revisar pipeline comercial Q2/26",           time: "Hoje",      prio: "Alta",  module: "Comercial" },
-    { t: "Auditoria de permissões — perfil Financeiro",time: "Amanhã",    prio: "Média", module: "Admin" },
-    { t: "Validar config. SMTP/IMAP Importação",       time: "Amanhã",    prio: "Baixa", module: "Admin" },
-  ],
-};
-
-const MOCK_STOCK = [
-  { sku: "VP-DG-2400", name: "Degraus Esc. Rolante 1000mm",  qty: 2, min: 6, status: "danger"  },
-  { sku: "VP-CR-3100", name: "Corrimão Schindler 9300",       qty: 4, min: 5, status: "warning" },
-  { sku: "VP-BI-220",  name: "Barreira Infravermelha 220V",   qty: 3, min: 8, status: "danger"  },
-];
 
 function ProjectList({ projetos }) {
   if (!projetos.length) return (
@@ -128,7 +96,6 @@ function ProjectKanban({ projetos }) {
 }
 
 function Dashboard({ role, setRoute }) {
-  const D = window.__VP_DATA;
   const [sbData, setSbData] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [projectView, setProjectView] = React.useState('gantt');
@@ -141,14 +108,12 @@ function Dashboard({ role, setRoute }) {
       .catch(() => setLoading(false));
   }, [role]);
 
-  const kpis     = sbData?.kpis?.[role]  || D.kpis?.[role] || D.kpis?.admin || [];
-  const tasks    = sbData !== null ? (sbData.tarefas || []) : (MOCK_TASKS[role] || []);
-  const alertas  = sbData
-    ? sbData.alertas
-    : [...(D.alerts || [])].sort((a, b) => ({ danger: 0, warning: 1, info: 2 }[a.level] - { danger: 0, warning: 1, info: 2 }[b.level]));
-  const projetos = sbData?.ganttProjetos || D.projetos || [];
-  const stocks   = sbData?.estoqueCritico?.length > 0 ? sbData.estoqueCritico : MOCK_STOCK;
-  const alertasCrit = sbData?.alertasCriticos ?? alertas.filter(a => a.level === 'danger').length;
+  const kpis        = sbData?.kpis?.[role] || [];
+  const tasks       = sbData?.tarefas || [];
+  const alertas     = sbData?.alertas || [];
+  const projetos    = sbData?.ganttProjetos || [];
+  const stocks      = sbData?.estoqueCritico || [];
+  const alertasCrit = sbData?.alertasCriticos ?? 0;
 
   const u         = ROLE_MAP[role];
   const firstName = u.name.split(" ")[0];
@@ -245,12 +210,14 @@ function Dashboard({ role, setRoute }) {
           <OriginBars data={sbData?.originBars}/>
         </Card>
         <div>
-          <NcmDashboardWidget setRoute={setRoute}/>
+          <NcmDashboardWidget setRoute={setRoute} ncm={sbData?.ncm || []}/>
           <div style={{ height: 16 }}/>
           <Card title="Estoque Crítico" sub="peças com saldo abaixo do mínimo"
             action={<Button variant="ghost" size="sm" iconRight="arrowRight" onClick={() => setRoute('compras')}>Detalhar</Button>}>
             <div className="stack">
-              {stocks.map((e, i) => <StockRow key={e.sku || i} {...e}/>)}
+              {stocks.length === 0
+              ? <div className="muted" style={{ padding: '16px 0', textAlign: 'center', fontSize: 13 }}>Nenhum item abaixo do mínimo.</div>
+              : stocks.map((e, i) => <StockRow key={e.sku || i} {...e}/>)}
             </div>
           </Card>
         </div>
@@ -260,16 +227,13 @@ function Dashboard({ role, setRoute }) {
 }
 
 function PipelineFunnel({ stages }) {
-  const data = stages || [
-    { label: "Leads",         value: 128, color: "#000" },
-    { label: "Cotação China", value: 47,  color: "var(--vp-gray-700)" },
-    { label: "Precificação",  value: 31,  color: "var(--vp-gray-500)" },
-    { label: "Proposta",      value: 18,  color: "var(--vp-yellow-press)" },
-    { label: "Contrato",      value: 12,  color: "var(--vp-yellow)" },
-  ];
+  const data = stages || [];
   const max  = data[0]?.value || 1;
   const last = data[data.length - 1]?.value || 0;
   const conv = max > 0 ? ((last / max) * 100).toFixed(1) : "0.0";
+  if (!data.length) return (
+    <div className="muted" style={{ padding: '24px 0', textAlign: 'center', fontSize: 13 }}>Aguardando dados de leads.</div>
+  );
   return (
     <div className="stack" style={{ gap: 8 }}>
       {data.map((s) => (
@@ -291,14 +255,11 @@ function PipelineFunnel({ stages }) {
 }
 
 function OriginBars({ data }) {
-  const rows = data || [
-    { l: "Site",      v: 42, conv: 28 },
-    { l: "Indicação", v: 31, conv: 41 },
-    { l: "WhatsApp",  v: 24, conv: 19 },
-    { l: "Licitação", v: 18, conv: 22 },
-    { l: "Email",     v: 13, conv: 31 },
-  ];
+  const rows = data || [];
   const max = rows[0]?.v || 1;
+  if (!rows.length) return (
+    <div className="muted" style={{ padding: '24px 0', textAlign: 'center', fontSize: 13 }}>Aguardando dados de leads.</div>
+  );
   return (
     <div className="stack" style={{ gap: 10 }}>
       {rows.map((d) => (

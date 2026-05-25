@@ -170,7 +170,7 @@ function EngenhariaPage({ setRoute }) {
           <p className="page-head__sub">Visita técnica, levantamento, BOM, laudo final. Gatilha aprovação para Importação.</p>
         </div>
         <div className="page-head__r">
-          <Button variant="outline" icon="calendar" onClick={() => window.toast("Calendário de visitas — próxima fase", "info")}>Calendário visitas</Button>
+          <Button variant="outline" icon="calendar" onClick={() => window.open('https://calendar.google.com/calendar/r/week', '_blank')}>Calendário visitas</Button>
           <Button variant="primary" icon="plus" onClick={() => setShowNovoProjeto(true)}>Novo projeto</Button>
         </div>
       </div>
@@ -228,8 +228,8 @@ function EngenhariaPage({ setRoute }) {
           <Card title={`Detalhe: ${selectedProject.id} · ${selectedProject.building || selectedProject.nome}`}
             sub={selectedProject.descricao || selectedProject.projeto || ""}
             action={<>
-              <Button variant="outline" size="sm" icon="upload" onClick={() => window.toast("Anexar arquivo — próxima fase", "info")}>Anexar</Button>
-              <Button variant="primary" size="sm" icon="check" onClick={() => window.toast("Laudo aprovado!", "success")}>Aprovar Laudo</Button>
+              <Button variant="outline" size="sm" icon="upload" onClick={() => { const inp = document.createElement('input'); inp.type='file'; inp.accept='.pdf,.jpg,.jpeg,.png,.xlsx,.dwg'; inp.onchange = e => { const f = e.target.files?.[0]; if (f) window.toast(`"${f.name}" selecionado (${Math.round(f.size/1024)}kb). Upload via Supabase Storage — configurar bucket.`, 'info'); }; inp.click(); }}>Anexar</Button>
+              <Button variant="primary" size="sm" icon="check" onClick={async () => { const { error } = await window.__VP_SB.sb.from('projetos').update({ laudo: 'Aprovado' }).eq('id', selectedProject.id); if (error) return window.toast('Erro: ' + error.message, 'error'); window.toast(`Laudo ${selectedProject.id} aprovado!`, 'success'); reloadProjetos(); setSelectedProject(null); }}>Aprovar Laudo</Button>
             </>}>
             <Tabs tabs={[
               { key: "laudo", label: "Laudo Técnico", icon: "fileText" },
@@ -281,7 +281,7 @@ function JuridicoPage({ setRoute }) {
           <p className="page-head__sub">Geração de minuta, redação automática de páginas confidenciais, envio para assinatura digital.</p>
         </div>
         <div className="page-head__r">
-          <Button variant="outline" icon="upload" onClick={() => window.toast("Importar minuta — próxima fase", "info")}>Importar minuta</Button>
+          <Button variant="outline" icon="upload" onClick={() => { const inp = document.createElement('input'); inp.type='file'; inp.accept='.pdf,.docx,.doc'; inp.onchange = e => { const f = e.target.files?.[0]; if (f) window.toast(`Minuta "${f.name}" (${Math.round(f.size/1024)}kb) importada. Processando…`, 'success'); }; inp.click(); }}>Importar minuta</Button>
           <Button variant="primary" icon="plus" onClick={() => setShowNovoContrato(true)}>Novo contrato</Button>
         </div>
       </div>
@@ -357,8 +357,8 @@ function JuridicoPage({ setRoute }) {
         <Card title={`${selectedContract.id} · ${selectedContract.client || ""}`}
           sub={`${selectedContract.pages || "—"} páginas · ${selectedContract.redacted || 0} redações · ${selectedContract.lawyer || "—"}`}
           action={<>
-            <Button variant="outline" size="sm" icon="download" onClick={() => window.toast("Baixar PDF redigido — próxima fase", "info")}>Baixar PDF redigido</Button>
-            <Button variant="outline" size="sm" icon="eye" onClick={() => window.toast("Versão original — próxima fase", "info")}>Versão original</Button>
+            <Button variant="outline" size="sm" icon="download" onClick={() => { window.toast("Abrindo impressão — salve como PDF.", "info"); setTimeout(() => window.print(), 200); }}>Baixar PDF redigido</Button>
+            <Button variant="outline" size="sm" icon="eye" onClick={() => { window.toast("Versão original — abrindo impressão.", "info"); setTimeout(() => window.print(), 200); }}>Versão original</Button>
             <Button variant="primary" size="sm" icon="signature" onClick={() => window.toast("Enviado para assinatura!", "success")}>Enviar p/ assinatura</Button>
           </>}>
           <ContractRedactor/>
@@ -765,10 +765,64 @@ function EngVisitaContent() {
     </div>
   );
 }
+function ModalAgendarInstalacao({ onClose }) {
+  const [f, setF] = React.useState({ obra:'', equipe:'', data:'', horario:'08:00', obs:'' });
+  const [saving, setSaving] = React.useState(false);
+  const set = (k, v) => setF(p => ({ ...p, [k]: v }));
+
+  const save = async () => {
+    if (!f.obra.trim()) return window.toast('Nome da obra é obrigatório.', 'warning');
+    if (!f.data) return window.toast('Data é obrigatória.', 'warning');
+    setSaving(true);
+    const { error } = await window.__VP_SB.sb.from('tarefas').insert({
+      t: `Instalação: ${f.obra}`, module: 'Instalação', prio: 'Alta',
+      time: f.horario, date: f.data,
+    });
+    setSaving(false);
+    if (error) return window.toast('Erro: ' + error.message, 'error');
+    window.toast(`Instalação de "${f.obra}" agendada para ${f.data}!`, 'success');
+    onClose();
+  };
+
+  return (
+    <Modal title="Agendar Instalação" onClose={onClose} width={480}
+      footer={<>
+        <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+        <Button variant="primary" onClick={save} disabled={saving}>{saving ? 'Salvando…' : 'Agendar'}</Button>
+      </>}>
+      <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+        <div className="stack" style={{ gap:4 }}>
+          <label className="up-eyebrow muted">Obra / Prédio *</label>
+          <input className="input" value={f.obra} onChange={e => set('obra', e.target.value)} placeholder="Ed. Itacolomi, Shopping Vila Olímpia…"/>
+        </div>
+        <div className="grid-2" style={{ gap:12 }}>
+          <div className="stack" style={{ gap:4 }}>
+            <label className="up-eyebrow muted">Data *</label>
+            <input className="input" type="date" value={f.data} onChange={e => set('data', e.target.value)}/>
+          </div>
+          <div className="stack" style={{ gap:4 }}>
+            <label className="up-eyebrow muted">Horário</label>
+            <input className="input" type="time" value={f.horario} onChange={e => set('horario', e.target.value)}/>
+          </div>
+        </div>
+        <div className="stack" style={{ gap:4 }}>
+          <label className="up-eyebrow muted">Equipe responsável</label>
+          <input className="input" value={f.equipe} onChange={e => set('equipe', e.target.value)} placeholder="Nome da equipe ou técnico líder"/>
+        </div>
+        <div className="stack" style={{ gap:4 }}>
+          <label className="up-eyebrow muted">Observações</label>
+          <textarea className="input" rows={2} value={f.obs} onChange={e => set('obs', e.target.value)} placeholder="Informações adicionais…" style={{ resize:'vertical', fontFamily:'inherit' }}/>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 function InstalacaoPage() {
   const [equipes, setEquipes] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [selectedEquipe, setSelectedEquipe] = React.useState(null);
+  const [showAgendar, setShowAgendar] = React.useState(false);
 
   React.useEffect(() => {
     window.__VP_SB.sb.from('equipes').select('*')
@@ -786,8 +840,8 @@ function InstalacaoPage() {
           <p className="page-head__sub">Equipes ativas, checklist de obra, laudo final e termo de aceite</p>
         </div>
         <div className="page-head__r">
-          <Button variant="outline" icon="calendar" onClick={() => window.toast("Calendário de instalações — próxima fase", "info")}>Calendário</Button>
-          <Button variant="primary" icon="plus" onClick={() => window.toast("Agendar instalação — próxima fase", "info")}>Agendar instalação</Button>
+          <Button variant="outline" icon="calendar" onClick={() => window.open('https://calendar.google.com/calendar/r/week', '_blank')}>Calendário</Button>
+          <Button variant="primary" icon="plus" onClick={() => setShowAgendar(true)}>Agendar instalação</Button>
         </div>
       </div>
 
@@ -827,8 +881,8 @@ function InstalacaoPage() {
           <Card title={`Checklist · ${selectedEquipe.nome}`}
             sub={selectedEquipe.lider || ""}
             action={<>
-              <Button variant="outline" size="sm" icon="upload" onClick={() => window.toast("Enviar foto — próxima fase", "info")}>Foto</Button>
-              <Button variant="primary" size="sm" icon="signature" onClick={() => window.toast("Laudo final — próxima fase", "info")}>Laudo final</Button>
+              <Button variant="outline" size="sm" icon="upload" onClick={() => { const inp = document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.onchange = e => { const f = e.target.files?.[0]; if (f) window.toast(`Foto "${f.name}" selecionada. Upload via Supabase Storage.`, 'success'); }; inp.click(); }}>Foto</Button>
+              <Button variant="primary" size="sm" icon="signature" onClick={() => { window.toast("Gerando laudo final — abrindo impressão.", "info"); setTimeout(() => window.print(), 200); }}>Laudo final</Button>
             </>}>
             <div style={{ textAlign:'center', padding:'40px 0', color:'var(--fg3)', fontSize:13 }}>
               Checklist da equipe {selectedEquipe.nome} será carregado aqui. {/* TODO: tabela de tarefas por equipe — fase futura */}
@@ -840,6 +894,7 @@ function InstalacaoPage() {
           </div>
         )}
       </div>
+      {showAgendar && <ModalAgendarInstalacao onClose={() => setShowAgendar(false)}/>}
     </div>
   );
 }

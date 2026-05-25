@@ -42,7 +42,7 @@ function PrecificacaoPage({ setRoute }) {
           <p className="page-head__sub">Calcule preço final com FOB China + impostos + frete + margem. Acesso restrito a Comercial Sr. / Financeiro / Admin.</p>
         </div>
         <div className="page-head__r">
-          <Button variant="outline" icon="download" onClick={() => window.toast("Exportar planilhas — próxima fase", "info")}>Exportar planilhas</Button>
+          <Button variant="outline" icon="download" onClick={() => window.csvDownload(items.map(i => ({ id:i.id, projeto:i.name, cliente:i.client, status:i.status, margem_pct:i.margem, versoes:i.versions, valor:i.value })), 'precificacao.csv')}>Exportar planilhas</Button>
           <Button variant="primary" icon="plus" onClick={() => setSelectedProject({})}>Nova precificação</Button>
         </div>
       </div>
@@ -309,7 +309,7 @@ function PropostasPage({ setRoute }) {
           <p className="page-head__sub">Wizard de 5 etapas · gera PDF + envia para assinatura digital · vincula contrato jurídico</p>
         </div>
         <div className="page-head__r">
-          <Button variant="outline" icon="download" onClick={() => window.toast("Exportar pacote — próxima fase", "info")}>Exportar pacote</Button>
+          <Button variant="outline" icon="download" onClick={() => window.csvDownload(list.map(p => ({ id:p.id, origem:p.origin, status:p.status, data:p.date, valor:p.value })), 'propostas.csv')}>Exportar pacote</Button>
           <Button variant="primary" icon="plus" onClick={() => setRoute("proposta-editor")}>Nova proposta</Button>
         </div>
       </div>

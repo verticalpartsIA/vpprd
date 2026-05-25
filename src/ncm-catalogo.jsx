@@ -112,7 +112,7 @@ function NcmCatalogoPage({ setRoute }) {
           <p className="page-head__sub">Produtos cadastrados no Catálogo da Receita Federal (Siscomex/Duimp). Necessário para emissão de Duimp.</p>
         </div>
         <div className="page-head__r">
-          <Button variant="outline" icon="download" onClick={() => window.toast("Exportação CSV em breve", "info")}>Exportar</Button>
+          <Button variant="outline" icon="download" onClick={() => window.csvDownload(rows.map(p => ({ id:p.id, produto:p.produto, ncm_atual:p.ncm_atual, ncm_sugerido:p.ncm_sugerido, solicitante:p.solicitante, status:p.status, criado_em:p.created_at?.slice(0,10) })), 'catalogo-produtos.csv')}>Exportar</Button>
           <Button variant="primary" icon="plus" onClick={() => setShowNovo(true)}>Novo produto</Button>
         </div>
       </div>
@@ -185,7 +185,7 @@ function NcmCatalogoPage({ setRoute }) {
                     <td><span className="cell-sub">{p.created_at ? p.created_at.slice(0,10) : "—"}</span></td>
                     <td>
                       <Button variant="ghost" size="sm" icon="more"
-                        onClick={(e) => { e.stopPropagation(); window.toast("Menu de ações em breve", "info"); }}/>
+                        onClick={(e) => { e.stopPropagation(); const ncm = p.ncm_atual || p.ncm_sugerido || ''; ncm ? navigator.clipboard?.writeText(ncm).then(() => window.toast(`NCM ${ncm} copiado!`, 'success')).catch(() => window.toast(`NCM: ${ncm}`, 'info')) : window.toast('Sem NCM cadastrado.', 'warning'); }}/>
                     </td>
                   </tr>
                 );

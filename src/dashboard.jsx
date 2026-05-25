@@ -95,10 +95,63 @@ function ProjectKanban({ projetos }) {
   );
 }
 
+function ModalNovaTask({ onClose }) {
+  const [titulo, setTitulo] = React.useState('');
+  const [modulo, setModulo] = React.useState('Comercial');
+  const [prio, setPrio] = React.useState('Média');
+  const [saving, setSaving] = React.useState(false);
+
+  const save = async () => {
+    if (!titulo.trim()) return window.toast('Título é obrigatório.', 'warning');
+    setSaving(true);
+    const { error } = await window.__VP_SB.sb.from('tarefas').insert({
+      t: titulo, module: modulo, prio,
+      time: 'Hoje',
+      date: new Date().toISOString().slice(0, 10),
+    });
+    setSaving(false);
+    if (error) return window.toast('Erro: ' + error.message, 'error');
+    window.toast('Tarefa adicionada!', 'success');
+    onClose();
+  };
+
+  return (
+    <Modal title="Nova Tarefa" onClose={onClose} width={440}
+      footer={<>
+        <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+        <Button variant="primary" onClick={save} disabled={saving}>{saving ? 'Salvando…' : 'Criar Tarefa'}</Button>
+      </>}>
+      <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+        <div className="stack" style={{ gap:4 }}>
+          <label className="up-eyebrow muted">Título da tarefa *</label>
+          <input className="input" value={titulo} onChange={e => setTitulo(e.target.value)} placeholder="Ex.: Ligar para síndico Ed. Itacolomi"/>
+        </div>
+        <div className="grid-2" style={{ gap:12 }}>
+          <div className="stack" style={{ gap:4 }}>
+            <label className="up-eyebrow muted">Módulo</label>
+            <select className="input" value={modulo} onChange={e => setModulo(e.target.value)}>
+              {['Comercial','Engenharia','Jurídico','Importação','Financeiro','Instalação'].map(m => <option key={m}>{m}</option>)}
+            </select>
+          </div>
+          <div className="stack" style={{ gap:4 }}>
+            <label className="up-eyebrow muted">Prioridade</label>
+            <select className="input" value={prio} onChange={e => setPrio(e.target.value)}>
+              {['Alta','Média','Baixa'].map(p => <option key={p}>{p}</option>)}
+            </select>
+          </div>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 function Dashboard({ role, setRoute }) {
   const [sbData, setSbData] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [projectView, setProjectView] = React.useState('gantt');
+  const [period, setPeriod] = React.useState('Hoje');
+  const [showTask, setShowTask] = React.useState(false);
+  const periods = ['Hoje','7 dias','30 dias','90 dias'];
 
   React.useEffect(() => {
     if (!window.__VP_SB) { setLoading(false); return; }
@@ -141,8 +194,10 @@ function Dashboard({ role, setRoute }) {
           </p>
         </div>
         <div className="page-head__r">
-          <Button variant="outline" icon="calendar" onClick={() => window.toast('Filtro de período em breve.', 'info')}>Hoje · {todayBtn}</Button>
-          <Button variant="secondary" icon="download" onClick={() => window.toast('Exportação de relatório em breve.', 'info')}>Relatório</Button>
+          <Button variant="outline" icon="calendar" onClick={() => { const idx = periods.indexOf(period); setPeriod(periods[(idx+1) % periods.length]); }}>
+            {period === 'Hoje' ? `Hoje · ${todayBtn}` : period}
+          </Button>
+          <Button variant="secondary" icon="download" onClick={() => window.csvDownload(kpis.map(k => ({ indicador: k.label, valor: k.value, sub: k.sub || '—', delta: k.delta || '—' })), `relatorio-dashboard-${role}-${new Date().toISOString().slice(0,10)}.csv`)}>Relatório</Button>
           <Button variant="primary" icon="plus" onClick={() => setRoute('leads')}>Novo Lead</Button>
         </div>
       </div>
@@ -161,14 +216,14 @@ function Dashboard({ role, setRoute }) {
               <button className={projectView === 'lista'  ? 'is-active' : ''} onClick={() => setProjectView('lista')}>Lista</button>
               <button className={projectView === 'kanban' ? 'is-active' : ''} onClick={() => setProjectView('kanban')}>Kanban</button>
             </div>
-            <Button variant="ghost" size="sm" icon="expand" onClick={() => window.toast('Tela cheia em breve.', 'info')}/>
+            <Button variant="ghost" size="sm" icon="expand" onClick={() => { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => {}); }}/>
           </>}>
           {projectView === 'gantt'  && <GanttChart projetos={projetos} onClick={() => setRoute("propostas")} today={sbData?.ganttToday ?? 60}/>}
           {projectView === 'lista'  && <ProjectList projetos={projetos}/>}
           {projectView === 'kanban' && <ProjectKanban projetos={projetos}/>}
         </Card>
 
-        <Card title="Tarefas de Hoje" sub={tasks.length + " pendentes"} action={<Button variant="ghost" size="sm" icon="plus" onClick={() => window.toast('Adicionar tarefa em breve.', 'info')}/>}>
+        <Card title="Tarefas de Hoje" sub={tasks.length + " pendentes"} action={<Button variant="ghost" size="sm" icon="plus" onClick={() => setShowTask(true)}/>}>
           <div className="stack">
             {tasks.map((t, i) => (
               <div key={i} className="task-row">
@@ -201,6 +256,8 @@ function Dashboard({ role, setRoute }) {
           ))}
         </div>
       </Card>
+
+      {showTask && <ModalNovaTask onClose={() => setShowTask(false)}/>}
 
       <div className="grid-3">
         <Card title="Pipeline Comercial" sub="acumulado">

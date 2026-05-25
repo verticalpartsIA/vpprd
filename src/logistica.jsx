@@ -2,18 +2,161 @@
    logistica.jsx — Importação (ship map) + Compras Nacional + Email Inbox
    ============================================================ */
 
+/* ---------- MODAL: Novo Embarque ---------- */
+function ModalNovoEmbarque({ onClose, onSaved }) {
+  const [f, setF] = React.useState({
+    client:'', vessel:'', bl:'', line:'',
+    from:'Shanghai — China', to:'Santos — Brasil',
+    eta:'', status:'Em trânsito', containers:'1', type:'40HC',
+  });
+  const [saving, setSaving] = React.useState(false);
+  const set = (k, v) => setF(p => ({ ...p, [k]: v }));
+
+  const save = async () => {
+    if (!f.client.trim()) return window.toast('Cliente é obrigatório.', 'warning');
+    if (!f.eta) return window.toast('ETA é obrigatória.', 'warning');
+    setSaving(true);
+    const { error } = await window.__VP_SB.sb.from('embarques').insert({
+      client: f.client, vessel: f.vessel || null, bl: f.bl || null,
+      line: f.line || null, from: f.from, to: f.to,
+      eta: f.eta, etaOriginal: f.eta, etd: null,
+      status: f.status, containers: parseInt(f.containers) || 1,
+      type: f.type, position: 0,
+      lat: null, lng: null, speed: null, heading: null, channel: null,
+      milestones: [], docs: [],
+    });
+    setSaving(false);
+    if (error) return window.toast('Erro: ' + error.message, 'error');
+    window.toast('Embarque criado!', 'success');
+    onSaved?.(); onClose();
+  };
+
+  const fld = (label, key, type='text', ph='', opts=null) => (
+    <div className="stack" style={{ gap:4 }}>
+      <label className="up-eyebrow muted">{label}</label>
+      {opts
+        ? <select className="input" value={f[key]} onChange={e => set(key, e.target.value)}>
+            {opts.map(o => <option key={o}>{o}</option>)}
+          </select>
+        : <input className="input" type={type} value={f[key]} onChange={e => set(key, e.target.value)} placeholder={ph}/>
+      }
+    </div>
+  );
+
+  return (
+    <Modal title="Novo Embarque" onClose={onClose} width={540}
+      footer={<>
+        <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+        <Button variant="primary" onClick={save} disabled={saving}>{saving ? 'Salvando…' : 'Criar Embarque'}</Button>
+      </>}>
+      <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+        {fld('Cliente *', 'client', 'text', 'Condomínio Ed. Itacolomi…')}
+        <div className="grid-2" style={{ gap:12 }}>
+          {fld('Nome do navio', 'vessel', 'text', 'Ex.: MV COSCO PIRAEUS')}
+          {fld('Linha marítima', 'line', 'text', 'Ex.: COSCO, MSC, CMA CGM')}
+        </div>
+        <div className="grid-2" style={{ gap:12 }}>
+          {fld('BL (Bill of Lading)', 'bl', 'text', 'Ex.: COSU6029841')}
+          {fld('ETA (previsão chegada) *', 'eta', 'date')}
+        </div>
+        <div className="grid-2" style={{ gap:12 }}>
+          {fld('Origem', 'from', 'text', 'Shanghai — China')}
+          {fld('Destino', 'to', 'text', 'Santos — Brasil')}
+        </div>
+        <div className="grid-3" style={{ gap:12 }}>
+          {fld('Qtd. containers', 'containers', 'number', '1')}
+          {fld('Tipo', 'type', 'text', '', ['20GP','40GP','40HC','20RF'])}
+          {fld('Status', 'status', 'text', '', ['Em trânsito','Liberação aduaneira','Entregue'])}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/* ---------- MODAL: Novo Frete ---------- */
+function ModalNovoFrete({ onClose, onSaved }) {
+  const [f, setF] = React.useState({
+    origem:'CD Guarulhos', destino:'', transportadora:'', driver:'',
+    placa:'', itens:'1', peso:'', valor:'', eta:'', status:'Aguardando coleta',
+  });
+  const [saving, setSaving] = React.useState(false);
+  const set = (k, v) => setF(p => ({ ...p, [k]: v }));
+
+  const save = async () => {
+    if (!f.destino.trim()) return window.toast('Destino é obrigatório.', 'warning');
+    if (!f.transportadora.trim()) return window.toast('Transportadora é obrigatória.', 'warning');
+    setSaving(true);
+    const { error } = await window.__VP_SB.sb.from('fretes').insert({
+      origem: f.origem, destino: f.destino,
+      transportadora: f.transportadora, driver: f.driver || null,
+      placa: f.placa || null, itens: parseInt(f.itens) || 1,
+      peso: f.peso ? parseFloat(f.peso) : null,
+      valor: f.valor ? parseFloat(f.valor) : null,
+      eta: f.eta || null, status: f.status, ocorrencias: 0,
+    });
+    setSaving(false);
+    if (error) return window.toast('Erro: ' + error.message, 'error');
+    window.toast('Frete criado!', 'success');
+    onSaved?.(); onClose();
+  };
+
+  const fld = (label, key, type='text', ph='', opts=null) => (
+    <div className="stack" style={{ gap:4 }}>
+      <label className="up-eyebrow muted">{label}</label>
+      {opts
+        ? <select className="input" value={f[key]} onChange={e => set(key, e.target.value)}>
+            {opts.map(o => <option key={o}>{o}</option>)}
+          </select>
+        : <input className="input" type={type} value={f[key]} onChange={e => set(key, e.target.value)} placeholder={ph}/>
+      }
+    </div>
+  );
+
+  return (
+    <Modal title="Novo Frete Nacional" onClose={onClose} width={520}
+      footer={<>
+        <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+        <Button variant="primary" onClick={save} disabled={saving}>{saving ? 'Salvando…' : 'Criar Frete'}</Button>
+      </>}>
+      <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+        <div className="grid-2" style={{ gap:12 }}>
+          {fld('Origem', 'origem', 'text', 'CD Guarulhos, Porto Santos…')}
+          {fld('Destino *', 'destino', 'text', 'Nome do condomínio / obra')}
+        </div>
+        <div className="grid-2" style={{ gap:12 }}>
+          {fld('Transportadora *', 'transportadora', 'text', 'Ex.: Patrus, TransLog SP')}
+          {fld('Placa', 'placa', 'text', 'Ex.: GFR-2244')}
+        </div>
+        <div className="grid-2" style={{ gap:12 }}>
+          {fld('Motorista', 'driver', 'text', 'Nome completo')}
+          {fld('Previsão entrega', 'eta', 'date')}
+        </div>
+        <div className="grid-3" style={{ gap:12 }}>
+          {fld('Qtd. itens', 'itens', 'number', '1')}
+          {fld('Peso (kg)', 'peso', 'number', '0')}
+          {fld('Valor frete (R$)', 'valor', 'number', '0')}
+        </div>
+        {fld('Status', 'status', 'text', '', ['Aguardando coleta','Saiu CD','Em rota','Entregue'])}
+      </div>
+    </Modal>
+  );
+}
+
 /* ---------- IMPORTAÇÃO listing ---------- */
 function ImportacaoPage({ setRoute, setSubsel }) {
   const [embarques, setEmbarques] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [tab, setTab] = React.useState("embarques");
   const [filter, setFilter] = React.useState("Todos");
+  const [showEmbarque, setShowEmbarque] = React.useState(false);
   const filterOptions = ["Todos", "Em trânsito", "Liberação aduaneira", "Entregue"];
 
-  React.useEffect(() => {
+  const reloadEmbarques = () => {
+    setLoading(true);
     window.__VP_SB.sb.from('embarques').select('*').order('eta')
       .then(({ data }) => { setEmbarques(data || []); setLoading(false); });
-  }, []);
+  };
+  React.useEffect(() => { reloadEmbarques(); }, []);
 
   if (loading) return <div style={{ textAlign:'center', padding:'60px 0', color:'var(--fg3)', fontSize:13 }}>Carregando…</div>;
 
@@ -29,7 +172,7 @@ function ImportacaoPage({ setRoute, setSubsel }) {
         <div className="page-head__r">
           <Button variant="outline" icon="mail" onClick={() => setRoute("importacao-email")}>Inbox</Button>
           <Button variant="outline" icon="globe" onClick={() => setRoute("importacao-rastreamento")}>Mapa de navios</Button>
-          <Button variant="primary" icon="plus" onClick={() => window.toast("Novo embarque — próxima fase", "info")}>Novo embarque</Button>
+          <Button variant="primary" icon="plus" onClick={() => setShowEmbarque(true)}>Novo embarque</Button>
         </div>
       </div>
 
@@ -113,6 +256,7 @@ function ImportacaoPage({ setRoute, setSubsel }) {
           </tbody>
         </table>
       </div>
+      {showEmbarque && <ModalNovoEmbarque onClose={() => setShowEmbarque(false)} onSaved={reloadEmbarques}/>}
     </div>
   );
 }
@@ -433,10 +577,20 @@ function RouteAndShip({ start, end, cur, ship, isActive, onClick }) {
 
 /* ---------- COMPRAS NACIONAL ============================== */
 function ComprasPage({ setRoute }) {
-  // TODO: conectar Supabase — tabela 'fretes' não mapeada; usando array vazio por ora
-  const fretes = [];
+  const [fretes, setFretes] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [showFrete, setShowFrete] = React.useState(false);
   const [filter, setFilter] = React.useState("Todos");
   const filters = ["Todos", "Em rota", "Saiu CD", "Aguardando coleta", "Entregue", "Atraso"];
+
+  const reloadFretes = () => {
+    setLoading(true);
+    window.__VP_SB.sb.from('fretes').select('*').order('id', { ascending: false })
+      .then(({ data }) => { setFretes(data || []); setLoading(false); });
+  };
+  React.useEffect(() => { reloadFretes(); }, []);
+
+  if (loading) return <div style={{ textAlign:'center', padding:'60px 0', color:'var(--fg3)', fontSize:13 }}>Carregando…</div>;
   const rows = fretes.filter(f => {
     if (filter === "Todos") return true;
     if (filter === "Atraso") return f.ocorrencias > 0 || f.status === "Atraso";
@@ -452,7 +606,7 @@ function ComprasPage({ setRoute }) {
         </div>
         <div className="page-head__r">
           <Button variant="outline" icon="mail" onClick={() => setRoute("compras-email")}>Inbox</Button>
-          <Button variant="primary" icon="plus" onClick={() => window.toast("Novo frete — próxima fase", "info")}>Novo frete</Button>
+          <Button variant="primary" icon="plus" onClick={() => setShowFrete(true)}>Novo frete</Button>
         </div>
       </div>
 
@@ -522,6 +676,7 @@ function ComprasPage({ setRoute }) {
           </tbody>
         </table>
       </div>
+      {showFrete && <ModalNovoFrete onClose={() => setShowFrete(false)} onSaved={reloadFretes}/>}
     </div>
   );
 }

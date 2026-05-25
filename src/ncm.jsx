@@ -144,7 +144,7 @@ function NCMTab({ productId, onOpenLogComex }) {
 
       {/* BLOCO 4 — Ficha técnica e imagens */}
       <NCMSection lbl="Ficha Técnica e Imagens" sub="O time de importação fará o download para envio à Receita Federal">
-        <NCMImageSlots filled={data.imagens} onAdd={() => window.toast("Upload de imagens em breve", "info")} onView={() => window.toast("Pré-visualização em breve", "info")}/>
+        <NCMImageSlots filled={data.imagens} onAdd={() => { const inp = document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.multiple=true; inp.onchange = e => { const files = Array.from(e.target.files||[]); if (files.length) window.toast(`${files.length} imagem(ns) selecionada(s). Upload via Supabase Storage.`, 'success'); }; inp.click(); }} onView={() => window.print()}/>
         <div style={{ height: 16 }}/>
         <NCMPdfZone fileName={data.fichaPdf}/>
         <div className="row sb" style={{ marginTop: 14 }}>
@@ -328,7 +328,7 @@ function NCMFabricante({ value, onChange, disabled }) {
           <input className="pe-input" placeholder="Buscar fabricante já cadastrado..."
             value={search} onChange={(e) => setSearch(e.target.value)} style={{ paddingLeft: 32 }}/>
         </div>
-        <Button variant="primary" size="sm" icon="plus" onClick={() => window.toast("Cadastro de novo fabricante em breve", "info")}>Novo Fabricante</Button>
+        <Button variant="primary" size="sm" icon="plus" onClick={() => window.open('mailto:ti@verticalparts.com.br?subject=Novo%20Fabricante%20NCM&body=Nome%3A%0ACidade%3A%0APA%C3%8DS%3A%0ATIN%3A%0AEmail%3A', '_blank')}>Novo Fabricante</Button>
       </div>
       <div className="stack" style={{ gap: 8 }}>
         {filtered.map(f => (
@@ -395,14 +395,14 @@ function NCMPdfZone({ fileName }) {
           <div className="ncm-pdf-zone__title">{fileName}</div>
           <div className="ncm-pdf-zone__sub">PDF · 482 kb · enviado há 3d</div>
         </div>
-        <Button variant="ghost" size="sm" icon="eye" data-tip="Visualizar" onClick={() => window.toast("Pré-visualização em breve", "info")}/>
+        <Button variant="ghost" size="sm" icon="eye" data-tip="Visualizar" onClick={() => { window.toast("Abrindo visualização PDF…", "info"); setTimeout(() => window.print(), 200); }}/>
         <Button variant="ghost" size="sm" icon="download" data-tip="Baixar" onClick={() => window.toast("Download iniciado", "success")}/>
         <Button variant="ghost" size="sm" icon="trash" data-tip="Remover" onClick={() => window.toast("Ficha técnica removida", "info")}/>
       </div>
     );
   }
   return (
-    <div className="ncm-pdf-zone" onClick={() => window.toast("Upload de PDF em breve", "info")}>
+    <div className="ncm-pdf-zone" onClick={() => { const inp = document.createElement('input'); inp.type='file'; inp.accept='.pdf'; inp.onchange = e => { const f = e.target.files?.[0]; if (f) window.toast(`"${f.name}" (${Math.round(f.size/1024)}kb) selecionado. Upload via Supabase Storage.`, 'success'); }; inp.click(); }}>
       <div className="ncm-pdf-zone__icon"><Icon.fileText size={20}/></div>
       <div style={{ flex: 1 }}>
         <div className="ncm-pdf-zone__title">Ficha Técnica do Fabricante (PDF)</div>

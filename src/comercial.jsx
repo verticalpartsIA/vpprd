@@ -83,6 +83,8 @@ function LeadsPage({ setRoute, setSubsel }) {
   const [search, setSearch] = React.useState("");
   const [owner, setOwner] = React.useState("Todos");
   const [showLead, setShowLead] = React.useState(false);
+  const [page, setPage] = React.useState(0);
+  const PAGE_SIZE = 15;
 
   const reloadLeads = () => {
     setLeads(null);
@@ -101,6 +103,8 @@ function LeadsPage({ setRoute, setSubsel }) {
     if (search && !((l.building || "") + (l.contact || "") + (l.equip || "")).toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
+  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const pageRows = rows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   const stats = {
     total: allLeads.length,
@@ -132,8 +136,8 @@ function LeadsPage({ setRoute, setSubsel }) {
           <p className="page-head__sub">{allLeads.length} leads ativos · pipeline {fmtBRL(stats.valor)} · conversão média 27%</p>
         </div>
         <div className="page-head__r">
-          <Button variant="outline" icon="download" onClick={() => window.toast('Exportação em breve.', 'info')}>Exportar</Button>
-          <Button variant="outline" icon="filter" onClick={() => window.toast('Filtros avançados em breve.', 'info')}>Filtros avançados</Button>
+          <Button variant="outline" icon="download" onClick={() => window.csvDownload(rows.map(l => ({ id:l.id, predio:l.building, contato:l.contact, cargo:l.role, telefone:l.phone, email:l.email, equipamento:l.equip, origem:l.origin, status:l.status, responsavel:l.owner, valor:l.value, prioridade:l.priority, proxima_acao:l.next, data:l.date })), 'leads.csv')}>Exportar</Button>
+          <Button variant="outline" icon="filter" onClick={() => window.toast(`Filtros ativos: status="${status}", responsável="${owner}". Use os botões acima.`, 'info')}>Filtros</Button>
           <Button variant="primary" icon="plus" onClick={() => setShowLead(true)}>Novo Lead</Button>
         </div>
       </div>
@@ -177,7 +181,7 @@ function LeadsPage({ setRoute, setSubsel }) {
             <th></th>
           </tr></thead>
           <tbody>
-            {rows.length === 0 ? (
+            {pageRows.length === 0 ? (
               <tr>
                 <td colSpan={10} style={{ textAlign: "center", padding: "48px 0", color: "var(--fg3)", fontSize: 13 }}>
                   {search || status !== "Todos" || owner !== "Todos"
@@ -185,7 +189,7 @@ function LeadsPage({ setRoute, setSubsel }) {
                     : "Nenhum lead cadastrado. Clique em \"Novo Lead\" para começar."}
                 </td>
               </tr>
-            ) : rows.map(l => (
+            ) : pageRows.map(l => (
               <tr key={l.id} onClick={() => { setSubsel(l); setRoute("lead-detail"); }}>
                 <td><span className="mono" style={{ fontSize: 11, color: "var(--fg3)" }}>{l.id}</span></td>
                 <td>
@@ -218,11 +222,11 @@ function LeadsPage({ setRoute, setSubsel }) {
       </div>
 
       <div className="row sb" style={{ marginTop: 14, fontSize: 12, color: "var(--fg3)" }}>
-        <span>Exibindo <b>{rows.length}</b> de <b>{allLeads.length}</b> leads</span>
+        <span>Exibindo <b>{pageRows.length}</b> de <b>{rows.length}</b> leads</span>
         <div className="row gap-2">
-          <Button variant="ghost" size="sm" icon="chevLeft" onClick={() => window.toast('Paginação em breve.', 'info')}/>
-          <span className="mono">Pág. 1 / {Math.max(1, Math.ceil(allLeads.length / 15))}</span>
-          <Button variant="ghost" size="sm" icon="chevRight" onClick={() => window.toast('Paginação em breve.', 'info')}/>
+          <Button variant="ghost" size="sm" icon="chevLeft" onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}/>
+          <span className="mono">Pág. {page + 1} / {totalPages}</span>
+          <Button variant="ghost" size="sm" icon="chevRight" onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}/>
         </div>
       </div>
 
@@ -266,8 +270,8 @@ function LeadDetail({ lead, setRoute }) {
           </div>
         </div>
         <div className="page-head__r">
-          <Button variant="outline" icon="message" onClick={() => window.toast('Integração WhatsApp em breve.', 'info')}>WhatsApp</Button>
-          <Button variant="outline" icon="mail" onClick={() => window.toast('Integração e-mail em breve.', 'info')}>Email</Button>
+          <Button variant="outline" icon="message" onClick={() => { const p = (lead.phone || '').replace(/\D/g,''); p ? window.open('https://wa.me/55'+p,'_blank') : window.toast('Telefone não cadastrado.','warning'); }}>WhatsApp</Button>
+          <Button variant="outline" icon="mail" onClick={() => { lead.email ? window.open('mailto:'+lead.email) : window.toast('Email não cadastrado.','warning'); }}>Email</Button>
           <Button variant="primary" icon="calculator" onClick={() => setRoute("precificacao")}>Precificar</Button>
         </div>
       </div>
@@ -331,8 +335,8 @@ function LeadDetail({ lead, setRoute }) {
             <KvBlock label="Telefone" value={lead.phone} mono/>
             <KvBlock label="Email" value={lead.email} mono/>
             <div className="row gap-2" style={{ marginTop: 14 }}>
-              <Button variant="secondary" size="sm" icon="message" onClick={() => window.toast('Integração WhatsApp em breve.', 'info')}>WhatsApp</Button>
-              <Button variant="outline" size="sm" icon="mail" onClick={() => window.toast('Integração e-mail em breve.', 'info')}>Email</Button>
+              <Button variant="secondary" size="sm" icon="message" onClick={() => { const p = (lead.phone || '').replace(/\D/g,''); p ? window.open('https://wa.me/55'+p,'_blank') : window.toast('Telefone não cadastrado.','warning'); }}>WhatsApp</Button>
+              <Button variant="outline" size="sm" icon="mail" onClick={() => { lead.email ? window.open('mailto:'+lead.email) : window.toast('Email não cadastrado.','warning'); }}>Email</Button>
             </div>
           </Card>
 
@@ -488,7 +492,7 @@ function CotacoesPage({ setRoute, setSubsel }) {
           <p className="page-head__sub">Solicitações enviadas aos fornecedores chineses. Link público é gerado para a fábrica preencher SEM autenticação.</p>
         </div>
         <div className="page-head__r">
-          <Button variant="outline" icon="link2" onClick={() => window.toast("Link público — próxima fase", "info")}>Link público</Button>
+          <Button variant="outline" icon="link2" onClick={() => { const url = 'https://vp.cn/nova-cotacao'; navigator.clipboard?.writeText(url).then(() => window.toast('Link público copiado!', 'success')).catch(() => window.toast('Link: ' + url, 'info')); }}>Link público</Button>
           <Button variant="primary" icon="plus" onClick={() => setShowCot(true)}>Nova Cotação</Button>
         </div>
       </div>
@@ -574,6 +578,7 @@ function CotacaoDetail({ cot, setRoute }) {
       ctaLabel="Ir para Cotações China"
       onCta={() => setRoute("cotacoes")}/>;
   }
+  const [aprovado, setAprovado] = React.useState(cot.status === 'Aprovada');
   // TODO: conectar Supabase — itens da cotação virão de tabela de itens futuramente
   const items = [];
   const totalUSD = 0;
@@ -594,9 +599,9 @@ function CotacaoDetail({ cot, setRoute }) {
           </div>
         </div>
         <div className="page-head__r">
-          <Button variant="outline" icon="download" onClick={() => window.toast("Geração de PDF — próxima fase", "info")}>PDF</Button>
-          <Button variant="outline" icon="link2" onClick={() => { navigator.clipboard?.writeText(`https://vp.cn/cotacao/${cot.token}`); window.toast("Link copiado!", "success"); }}>Copiar link público</Button>
-          <Button variant="primary" icon="check" onClick={() => window.toast("Aprovação de cotação — próxima fase", "info")}>Aprovar</Button>
+          <Button variant="outline" icon="download" onClick={() => { window.toast("Abrindo impressão — salve como PDF.", "info"); setTimeout(() => window.print(), 200); }}>PDF</Button>
+          <Button variant="outline" icon="link2" onClick={() => { const url = `https://vp.cn/cotacao/${cot.token}`; navigator.clipboard?.writeText(url).then(() => window.toast("Link copiado!", "success")).catch(() => window.toast("Link: " + url, "info")); }}>Copiar link público</Button>
+          <Button variant={aprovado ? "ghost" : "primary"} icon="check" onClick={async () => { if (aprovado) return window.toast('Cotação já aprovada.', 'info'); const { error } = await window.__VP_SB.sb.from('cotacoes').update({ status: 'Aprovada' }).eq('id', cot.id); if (error) return window.toast('Erro: ' + error.message, 'error'); setAprovado(true); window.toast('Cotação aprovada!', 'success'); }}>{aprovado ? 'Aprovada ✓' : 'Aprovar'}</Button>
         </div>
       </div>
 

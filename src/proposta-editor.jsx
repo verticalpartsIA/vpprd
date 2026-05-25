@@ -312,8 +312,8 @@ function PropostaEditor({ setRoute }) {
           </div>
           <div className="row gap-2">
             <Button variant="ghost" size="sm" icon="copy" onClick={resetProposal}>Reiniciar</Button>
-            <Button variant="outline" size="sm" icon="eye" onClick={() => window.toast("Pré-visualização em tela cheia em breve", "info")}>Visualizar</Button>
-            <Button variant="outline" size="sm" icon="download" onClick={() => window.toast("Geração de PDF em breve — protótipo", "info")}>Gerar PDF</Button>
+            <Button variant="outline" size="sm" icon="eye" onClick={() => window.print()}>Visualizar</Button>
+            <Button variant="outline" size="sm" icon="download" onClick={() => { window.toast("Abrindo diálogo de impressão / salvar PDF…", "info"); setTimeout(() => window.print(), 200); }}>Gerar PDF</Button>
             <Button variant="primary" size="sm" icon="send" onClick={() => window.toast("Proposta enviada (simulação) — fluxo real será implementado", "success")}>Enviar p/ Cliente</Button>
           </div>
         </div>
@@ -392,8 +392,8 @@ function PropostaEditor({ setRoute }) {
               <span className="pe__autosave"><span className="dot"/> Salvo automaticamente · {Math.max(0, Math.floor((Date.now() - savedAt) / 1000))}s atrás</span>
               <div className="spacer" style={{ flex: 1 }}/>
               <Button variant="ghost" size="sm" icon="chevLeft" onClick={() => setRoute("propostas")}>Voltar</Button>
-              <Button variant="outline" size="sm" icon="download" onClick={() => window.toast("Geração de PDF em breve — protótipo", "info")}>Gerar PDF</Button>
-              <Button variant="outline" size="sm" icon="eye" onClick={() => window.toast("Pré-visualização em tela cheia em breve", "info")}>Visualizar</Button>
+              <Button variant="outline" size="sm" icon="download" onClick={() => { window.toast("Abrindo diálogo salvar PDF…", "info"); setTimeout(() => window.print(), 200); }}>Gerar PDF</Button>
+              <Button variant="outline" size="sm" icon="eye" onClick={() => window.print()}>Visualizar</Button>
               <Button variant="secondary" size="sm" icon="copy" onClick={() => window.toast("Rascunho salvo no localStorage", "success")}>Salvar rascunho</Button>
               <Button variant="primary" size="sm" icon="send" onClick={() => window.toast("Proposta enviada (simulação) — fluxo real será implementado", "success")}>Enviar p/ Cliente</Button>
             </div>

@@ -3,14 +3,77 @@
                     Notificações, Configurações
    ============================================================ */
 
+function ModalNovoGatilho({ onClose, onSaved }) {
+  const [f, setF] = React.useState({ projeto:'', building:'', trigger:'Pagamento entrada', value:'', due_date:'', status:'pendente', reverse_from:'' });
+  const [saving, setSaving] = React.useState(false);
+  const set = (k, v) => setF(p => ({ ...p, [k]: v }));
+
+  const save = async () => {
+    if (!f.building.trim()) return window.toast('Prédio é obrigatório.', 'warning');
+    if (!f.due_date) return window.toast('Data de vencimento é obrigatória.', 'warning');
+    setSaving(true);
+    const { error } = await window.__VP_SB.sb.from('gatilhos').insert({
+      projeto: f.projeto || null, building: f.building,
+      trigger: f.trigger || 'Pagamento',
+      value: f.value ? parseFloat(f.value) : null,
+      due_date: f.due_date, status: f.status,
+      reverse_from: f.reverse_from || null, chain: [],
+      days_left: Math.round((new Date(f.due_date) - new Date()) / 86400000),
+    });
+    setSaving(false);
+    if (error) return window.toast('Erro: ' + error.message, 'error');
+    window.toast('Gatilho criado!', 'success');
+    onSaved?.(); onClose();
+  };
+
+  const fld = (label, key, type='text', ph='', opts=null) => (
+    <div className="stack" style={{ gap:4 }}>
+      <label className="up-eyebrow muted">{label}</label>
+      {opts
+        ? <select className="input" value={f[key]} onChange={e => set(key, e.target.value)}>
+            {opts.map(o => <option key={o}>{o}</option>)}
+          </select>
+        : <input className="input" type={type} value={f[key]} onChange={e => set(key, e.target.value)} placeholder={ph}/>
+      }
+    </div>
+  );
+
+  return (
+    <Modal title="Novo Gatilho Financeiro" onClose={onClose} width={520}
+      footer={<>
+        <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+        <Button variant="primary" onClick={save} disabled={saving}>{saving ? 'Salvando…' : 'Criar Gatilho'}</Button>
+      </>}>
+      <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+        {fld('Prédio / Projeto *', 'building', 'text', 'Ed. Itacolomi, Shopping Vila Olímpia…')}
+        <div className="grid-2" style={{ gap:12 }}>
+          {fld('Código do projeto', 'projeto', 'text', 'Ex.: CT-2026-118')}
+          {fld('Tipo de gatilho', 'trigger', 'text', '', ['Pagamento entrada','Pagamento embarque','Pagamento entrega','Sinal','Medição','Outro'])}
+        </div>
+        <div className="grid-2" style={{ gap:12 }}>
+          {fld('Valor (R$)', 'value', 'number', '0')}
+          {fld('Vencimento *', 'due_date', 'date')}
+        </div>
+        <div className="grid-2" style={{ gap:12 }}>
+          {fld('Status', 'status', 'text', '', ['pendente','atencao','ok'])}
+          {fld('Base do prazo reverso', 'reverse_from', 'text', 'Ex.: Data de instalação')}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 function FinanceiroPage() {
   const [gatilhos, setGatilhos] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
+  const [showGatilho, setShowGatilho] = React.useState(false);
 
-  React.useEffect(() => {
+  const reloadGatilhos = () => {
+    setLoading(true);
     window.__VP_SB.sb.from('gatilhos').select('*').order('due_date')
       .then(({ data }) => { setGatilhos(data || []); setLoading(false); });
-  }, []);
+  };
+  React.useEffect(() => { reloadGatilhos(); }, []);
 
   if (loading) return <div style={{ textAlign:'center', padding:'60px 0', color:'var(--fg3)', fontSize:13 }}>Carregando…</div>;
 
@@ -25,8 +88,8 @@ function FinanceiroPage() {
           <p className="page-head__sub">Pagamentos disparados por marcos contratuais. Cálculo de prazo reverso a partir da data de instalação.</p>
         </div>
         <div className="page-head__r">
-          <Button variant="outline" icon="download" onClick={() => window.toast("Exportação CSV/Excel em breve", "info")}>Exportar fluxo</Button>
-          <Button variant="primary" icon="plus" onClick={() => window.toast("Criação de gatilhos manuais em breve", "info")}>Novo gatilho</Button>
+          <Button variant="outline" icon="download" onClick={() => window.csvDownload(gatilhos.map(g => ({ projeto:g.projeto, building:g.building, trigger:g.trigger, valor:g.value, vencimento:g.due_date, dias_restantes:g.days_left, status:g.status })), 'gatilhos-fluxo.csv')}>Exportar fluxo</Button>
+          <Button variant="primary" icon="plus" onClick={() => setShowGatilho(true)}>Novo gatilho</Button>
         </div>
       </div>
 
@@ -60,6 +123,7 @@ function FinanceiroPage() {
           ))}
         </div>
       </Card>
+      {showGatilho && <ModalNovoGatilho onClose={() => setShowGatilho(false)} onSaved={reloadGatilhos}/>}
     </div>
   );
 }
@@ -153,7 +217,7 @@ function ComissoesPage() {
           <p className="page-head__sub">Comissionamento sobre faturamento líquido · liberação após confirmação de entrada</p>
         </div>
         <div className="page-head__r">
-          <Button variant="outline" icon="download" onClick={() => window.toast("Exportação em breve", "info")}>Folha de pagto</Button>
+          <Button variant="outline" icon="download" onClick={() => window.csvDownload(comissoes.map(c => ({ vendedor:c.vendedor, cargo:c.role, projetos:c.projetos, faturado:c.faturado, pct_comissao:c.pct, comissao:c.comissao, status:c.status })), 'folha-comissoes-q2.csv')}>Folha de pagto</Button>
           <Button variant="primary" icon="check" onClick={() => window.toast("Todas as comissões aprovadas — Q2/26", "success")}>Aprovar todas</Button>
         </div>
       </div>
@@ -245,7 +309,7 @@ function NotificacoesPage({ setRoute }) {
           <p className="page-head__sub">Agrupadas por módulo · respostas rápidas inline</p>
         </div>
         <div className="page-head__r">
-          <Button variant="outline" icon="settings" onClick={() => window.toast("Tela de preferências em breve", "info")}>Preferências</Button>
+          <Button variant="outline" icon="settings" onClick={() => window.open('mailto:ti@verticalparts.com.br?subject=Preferências%20de%20Notificação%20VP%20PRD', '_blank')}>Preferências</Button>
           <Button variant="primary" icon="check" onClick={() => window.toast("Notificações marcadas como lidas", "success")}>Marcar todas como lidas</Button>
         </div>
       </div>
@@ -339,7 +403,7 @@ function ConfigUsers() {
 
   return (
     <Card title="Usuários" sub={`${users.length} cadastrados`}
-      action={<Button variant="primary" size="sm" icon="plus" onClick={() => window.toast("Convite de usuário — próxima fase", "info")}>Convidar usuário</Button>}>
+      action={<Button variant="primary" size="sm" icon="plus" onClick={() => window.open('mailto:ti@verticalparts.com.br?subject=Novo%20usuário%20VP%20PRD&body=Solicito%20acesso%20para:', '_blank')}>Convidar usuário</Button>}>
       <div className="table-wrap" style={{ border: 0 }}>
         <table className="t">
           <thead><tr>

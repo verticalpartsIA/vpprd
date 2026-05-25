@@ -9,6 +9,28 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "initialRoute": "dashboard"
 }/*EDITMODE-END*/;
 
+// ---- Error Boundary — captura erros de render e mostra mensagem amigável ----
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(err) { return { error: err }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ padding: 48, textAlign: 'center', fontFamily: 'sans-serif' }}>
+          <div style={{ fontSize: 32, marginBottom: 12 }}>⚠️</div>
+          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Erro ao carregar o VP Gestão</div>
+          <div style={{ fontSize: 12, color: '#666', marginBottom: 24 }}>{String(this.state.error)}</div>
+          <button onClick={() => window.location.reload()}
+            style={{ padding: '8px 20px', background: '#f5c400', border: 'none', fontWeight: 700, cursor: 'pointer' }}>
+            Recarregar
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function App() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
 
@@ -173,4 +195,12 @@ function App() {
   );
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+// Remove o spinner de boot assim que o React estiver pronto
+const bootEl = document.getElementById('vp-boot');
+if (bootEl) bootEl.remove();
+
+ReactDOM.createRoot(document.getElementById("root")).render(
+  <ErrorBoundary>
+    <App/>
+  </ErrorBoundary>
+);

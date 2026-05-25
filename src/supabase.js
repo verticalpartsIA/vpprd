@@ -85,7 +85,7 @@
     const leads     = lR.data    || [];
     const cotacoes  = cotR.data  || [];
     const projetos  = projR.data || [];
-    const alertas   = alertR.data.map(a => ({ ...a, time: timeAgo(a.created_at) })) || [];
+    const alertas   = (alertR.data || []).map(a => ({ ...a, time: timeAgo(a.created_at) }));
     const tarefas   = tarR.data  || [];
     const embarques = embR.data  || [];
     const contratos = ctR.data   || [];

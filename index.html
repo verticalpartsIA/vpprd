@@ -21,13 +21,23 @@
 </head>
 <body class="vp" data-density="cozy">
   <div id="root"></div>
+  <div id="vp-boot" style="
+    position:fixed;inset:0;background:#fff;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:16px;z-index:9999;font-family:sans-serif;">
+    <img src="assets/logo-mark-yellow.png" alt="" style="width:48px;opacity:.9"/>
+    <div style="font-size:13px;font-weight:700;letter-spacing:.08em;color:#111;">VP GESTÃO</div>
+    <div style="width:32px;height:32px;border:3px solid #f0f0f0;border-top-color:#f5c400;
+      border-radius:50%;animation:vp-spin .7s linear infinite;"></div>
+    <div style="font-size:11px;color:#999;letter-spacing:.05em;">Carregando…</div>
+  </div>
+  <style>@keyframes vp-spin{to{transform:rotate(360deg)}}</style>
 
   <!-- Mock data first (plain JS, attaches to window) -->
   <script src="src/data.js?v=3"></script>
   <script src="src/ncm-data.js?v=6"></script>
 
   <!-- Supabase loader + carregador de dados reais -->
-  <script src="src/supabase.js?v=5"></script>
+  <script src="src/supabase.js?v=6"></script>
 
   <!-- Tweaks panel framework -->
   <script type="text/babel" src="src/tweaks-panel.jsx?v=3"></script>
@@ -49,6 +59,6 @@
   <script type="text/babel" src="src/financeiro.jsx?v=5"></script>
 
   <!-- Main app last -->
-  <script type="text/babel" src="src/app.jsx?v=3"></script>
+  <script type="text/babel" src="src/app.jsx?v=4"></script>
 </body>
 </html>

@@ -16,12 +16,15 @@ function ModalNovoLead({ onClose, onSaved }) {
     if (!f.building.trim()) return window.toast('Prédio é obrigatório.', 'warning');
     if (!f.contact.trim()) return window.toast('Contato é obrigatório.', 'warning');
     setSaving(true);
+    const id = 'LD-' + Date.now().toString().slice(-6);
     const { error } = await window.__VP_SB.sb.from('leads').insert({
+      id,
       building: f.building, contact: f.contact, role: f.role || null,
       phone: f.phone || null, email: f.email || null, equip: f.equip || null,
       origin: f.origin, status: f.status, owner: f.owner || null,
       value: f.value ? parseFloat(f.value) : null,
-      priority: f.priority, next: f.next || null,
+      priority: ({ 'Alta': 'alta', 'Média': 'media', 'Baixa': 'baixa' }[f.priority] || 'media'),
+      next_action: f.next || null,
       date: new Date().toISOString().slice(0, 10),
     });
     setSaving(false);
@@ -136,7 +139,7 @@ function LeadsPage({ setRoute, setSubsel }) {
           <p className="page-head__sub">{allLeads.length} leads ativos · pipeline {fmtBRL(stats.valor)} · conversão média 27%</p>
         </div>
         <div className="page-head__r">
-          <Button variant="outline" icon="download" onClick={() => window.csvDownload(rows.map(l => ({ id:l.id, predio:l.building, contato:l.contact, cargo:l.role, telefone:l.phone, email:l.email, equipamento:l.equip, origem:l.origin, status:l.status, responsavel:l.owner, valor:l.value, prioridade:l.priority, proxima_acao:l.next, data:l.date })), 'leads.csv')}>Exportar</Button>
+          <Button variant="outline" icon="download" onClick={() => window.csvDownload(rows.map(l => ({ id:l.id, predio:l.building, contato:l.contact, cargo:l.role, telefone:l.phone, email:l.email, equipamento:l.equip, origem:l.origin, status:l.status, responsavel:l.owner, valor:l.value, prioridade:l.priority, proxima_acao:l.next_action || l.next, data:l.date })), 'leads.csv')}>Exportar</Button>
           <Button variant="outline" icon="filter" onClick={() => window.toast(`Filtros ativos: status="${status}", responsável="${owner}". Use os botões acima.`, 'info')}>Filtros</Button>
           <Button variant="primary" icon="plus" onClick={() => setShowLead(true)}>Novo Lead</Button>
         </div>
@@ -211,8 +214,10 @@ function LeadsPage({ setRoute, setSubsel }) {
                 </td>
                 <td className="cell-money">{fmtBRL(l.value)}</td>
                 <td>
-                  <div style={{ fontSize: 12, color: "var(--fg1)", fontWeight: 500 }}>{l.next}</div>
-                  <Badge variant={l.priority === "Alta" ? "danger" : l.priority === "Média" ? "warning" : "neutral"} style={{ marginTop: 4 }}>{l.priority}</Badge>
+                  <div style={{ fontSize: 12, color: "var(--fg1)", fontWeight: 500 }}>{l.next_action || l.next || "—"}</div>
+                  <Badge variant={String(l.priority).toLowerCase() === "alta" ? "danger" : String(l.priority).toLowerCase() === "media" || l.priority === "Média" ? "warning" : "neutral"} style={{ marginTop: 4 }}>
+                    {({ alta: "Alta", media: "Média", baixa: "Baixa" }[String(l.priority || "").toLowerCase()] || l.priority || "—")}
+                  </Badge>
                 </td>
                 <td><Button variant="ghost" size="sm" icon="chevRight"/></td>
               </tr>
@@ -265,7 +270,9 @@ function LeadDetail({ lead, setRoute }) {
           <p className="page-head__sub">{lead.equip}</p>
           <div className="row gap-3" style={{ marginTop: 4 }}>
             <StatusBadge status={lead.status}/>
-            <Badge variant={lead.priority === "Alta" ? "danger" : "warning"} dot>{lead.priority}</Badge>
+            <Badge variant={String(lead.priority).toLowerCase() === "alta" ? "danger" : "warning"} dot>
+              {({ alta: "Alta", media: "Média", baixa: "Baixa" }[String(lead.priority || "").toLowerCase()] || lead.priority)}
+            </Badge>
             <span className="muted small">Última atualização: —</span>
           </div>
         </div>
@@ -407,9 +414,11 @@ function ModalNovaCotacao({ onClose, onSaved }) {
     if (!f.supplier.trim()) return window.toast('Fornecedor é obrigatório.', 'warning');
     if (!f.deadline) return window.toast('Prazo de retorno é obrigatório.', 'warning');
     setSaving(true);
+    const id = 'CT-' + Date.now().toString().slice(-6);
     const { error } = await window.__VP_SB.sb.from('cotacoes').insert({
+      id,
       building: f.building, supplier: f.supplier,
-      lead: f.lead || null, items: parseInt(f.items) || 1,
+      lead_id: f.lead || null, items: parseInt(f.items) || 1,
       deadline: f.deadline, status: 'Aguardando China',
       token, line: f.line || null,
       date: new Date().toISOString().slice(0, 10),
@@ -535,7 +544,7 @@ function CotacoesPage({ setRoute, setSubsel }) {
                 <td><span className="mono" style={{ fontSize: 11, color: "var(--fg3)" }}>{c.id}</span></td>
                 <td>
                   <div className="cell-main">{c.building}</div>
-                  <div className="cell-sub">Lead {c.lead} · solicitado {fmtDate(c.date)}</div>
+                  <div className="cell-sub">Lead {c.lead_id} · solicitado {fmtDate(c.date)}</div>
                 </td>
                 <td>{c.supplier}</td>
                 <td><span className="cell-num">{c.items}</span></td>

@@ -36,6 +36,8 @@ CREATE TABLE IF NOT EXISTS cotacoes (
   total      double precision,
   currency   text DEFAULT 'USD',
   owner      text,
+  token      text,
+  line       text,
   created_at timestamptz DEFAULT now()
 );
 

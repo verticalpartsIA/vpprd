@@ -243,7 +243,7 @@ function LeadDetail({ lead, setRoute }) {
         <div className="stack">
           <Card title="Contato">
             <div className="row gap-3" style={{ marginBottom: 14 }}>
-              <div className="avatar lg">{lead.contact.split(" ").map(w => w[0]).join("").slice(0,2)}</div>
+              <div className="avatar lg">{(lead.contact || "?").split(" ").map(w => w[0]).join("").slice(0,2)}</div>
               <div>
                 <div style={{ fontWeight: 700 }}>{lead.contact}</div>
                 <div className="cell-sub">{lead.role}</div>

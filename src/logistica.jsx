@@ -87,9 +87,9 @@ function ImportacaoPage({ setRoute, setSubsel }) {
                 </td>
                 <td>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
-                    <span>{e.from.split(" ")[0]}</span>
+                    <span>{(e.from || "—").split(" ")[0]}</span>
                     <Icon.arrowRight size={12} color="var(--vp-yellow)"/>
-                    <span>{e.to.split(" ")[0]}</span>
+                    <span>{(e.to || "—").split(" ")[0]}</span>
                   </div>
                   <div className="cell-sub">{e.containers}× {e.type}</div>
                 </td>
@@ -508,7 +508,7 @@ function ComprasPage({ setRoute }) {
                   </div>
                 </td>
                 <td>{f.transportadora}<div className="cell-sub">{f.placa}</div></td>
-                <td><div className="row gap-2"><div className="avatar sm">{f.driver.split(" ").map(w => w[0]).join("").slice(0,2)}</div><span style={{ fontSize: 12 }}>{f.driver}</span></div></td>
+                <td><div className="row gap-2"><div className="avatar sm">{(f.driver || "?").split(" ").map(w => w[0]).join("").slice(0,2)}</div><span style={{ fontSize: 12 }}>{f.driver || "—"}</span></div></td>
                 <td>
                   <span className="cell-num">{f.itens}</span>
                   {f.ocorrencias > 0 ? <Badge variant="danger" style={{ marginLeft: 8 }}>{f.ocorrencias} oco</Badge> : null}
@@ -617,9 +617,9 @@ function EmailInbox({ kind, setRoute }) {
               <div className="inbox__msg-head">
                 <h3 className="inbox__msg-subj">{active.subject}</h3>
                 <div className="inbox__msg-meta">
-                  <div className="avatar">{active.from.split("@")[0].split(/[.\-_]/).slice(0,2).map(w => (w[0]||"").toUpperCase()).join("")}</div>
+                  <div className="avatar">{(active.from || "").split("@")[0].split(/[.\-_]/).slice(0,2).map(w => (w[0]||"").toUpperCase()).join("") || "?"}</div>
                   <div>
-                    <div className="from-name">{active.from.split("@")[0]}</div>
+                    <div className="from-name">{(active.from || "").split("@")[0]}</div>
                     <div className="from-email">{active.from}</div>
                   </div>
                   <div className="from-name" style={{ marginLeft: 12 }}>

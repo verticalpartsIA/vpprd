@@ -2,17 +2,94 @@
    comercial.jsx — Leads, Cotações, Precificação, Propostas
    ============================================================ */
 
+/* ---------- MODAL: Novo Lead ---------- */
+function ModalNovoLead({ onClose, onSaved }) {
+  const [f, setF] = React.useState({
+    building:'', contact:'', role:'', phone:'', email:'',
+    equip:'', origin:'Site', status:'Em qualificação',
+    owner:'', value:'', priority:'Alta', next:'',
+  });
+  const [saving, setSaving] = React.useState(false);
+  const set = (k, v) => setF(p => ({ ...p, [k]: v }));
+
+  const save = async () => {
+    if (!f.building.trim()) return window.toast('Prédio é obrigatório.', 'warning');
+    if (!f.contact.trim()) return window.toast('Contato é obrigatório.', 'warning');
+    setSaving(true);
+    const { error } = await window.__VP_SB.sb.from('leads').insert({
+      building: f.building, contact: f.contact, role: f.role || null,
+      phone: f.phone || null, email: f.email || null, equip: f.equip || null,
+      origin: f.origin, status: f.status, owner: f.owner || null,
+      value: f.value ? parseFloat(f.value) : null,
+      priority: f.priority, next: f.next || null,
+      date: new Date().toISOString().slice(0, 10),
+    });
+    setSaving(false);
+    if (error) return window.toast('Erro: ' + error.message, 'error');
+    window.toast('Lead criado com sucesso!', 'success');
+    onSaved?.(); onClose();
+  };
+
+  const fld = (label, key, type = 'text', ph = '', opts = null) => (
+    <div className="stack" style={{ gap: 4 }}>
+      <label className="up-eyebrow muted">{label}</label>
+      {opts
+        ? <select className="input" value={f[key]} onChange={e => set(key, e.target.value)}>
+            {opts.map(o => <option key={o}>{o}</option>)}
+          </select>
+        : <input className="input" type={type} value={f[key]}
+            onChange={e => set(key, e.target.value)} placeholder={ph}/>
+      }
+    </div>
+  );
+
+  return (
+    <Modal title="Novo Lead" onClose={onClose} width={580}
+      footer={<>
+        <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+        <Button variant="primary" onClick={save} disabled={saving}>
+          {saving ? 'Salvando…' : 'Criar Lead'}
+        </Button>
+      </>}>
+      <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+        {fld('Prédio / Empreendimento *', 'building', 'text', 'Ed. Itacolomi, Shopping Vila Olímpia…')}
+        <div className="grid-2" style={{ gap:12 }}>
+          {fld('Contato *', 'contact', 'text', 'Nome do síndico / responsável')}
+          {fld('Cargo', 'role', 'text', 'Síndico, Gerente, Engenheiro…')}
+        </div>
+        <div className="grid-2" style={{ gap:12 }}>
+          {fld('Telefone', 'phone', 'text', '(11) 9 9999-9999')}
+          {fld('Email', 'email', 'email', 'contato@email.com')}
+        </div>
+        {fld('Equipamento', 'equip', 'text', '4× Elevador Schindler 9300AE, 2× Escada Rolante…')}
+        <div className="grid-2" style={{ gap:12 }}>
+          {fld('Origem', 'origin', 'text', '', ['Site','Indicação','LinkedIn','Cold Call','Evento','WhatsApp','Email'])}
+          {fld('Prioridade', 'priority', 'text', '', ['Alta','Média','Baixa'])}
+        </div>
+        <div className="grid-2" style={{ gap:12 }}>
+          {fld('Responsável (Comercial)', 'owner', 'text', 'Nome do vendedor')}
+          {fld('Valor estimado (R$)', 'value', 'number', '0')}
+        </div>
+        {fld('Próxima ação', 'next', 'text', 'Ex.: Enviar proposta, Agendar visita…')}
+      </div>
+    </Modal>
+  );
+}
+
 /* ---------- LEADS ---------- */
 function LeadsPage({ setRoute, setSubsel }) {
   const [leads, setLeads] = React.useState(null);
   const [status, setStatus] = React.useState("Todos");
   const [search, setSearch] = React.useState("");
   const [owner, setOwner] = React.useState("Todos");
+  const [showLead, setShowLead] = React.useState(false);
 
-  React.useEffect(() => {
+  const reloadLeads = () => {
+    setLeads(null);
     window.__VP_SB.sb.from('leads').select('*').order('date', { ascending: false })
       .then(({ data }) => setLeads(data || []));
-  }, []);
+  };
+  React.useEffect(() => { reloadLeads(); }, []);
 
   const statuses = ["Todos", "Em qualificação", "Aguardando cotação", "Proposta enviada", "Negociação", "Convertido", "Sem retorno"];
   const allLeads = leads || [];
@@ -57,7 +134,7 @@ function LeadsPage({ setRoute, setSubsel }) {
         <div className="page-head__r">
           <Button variant="outline" icon="download" onClick={() => window.toast('Exportação em breve.', 'info')}>Exportar</Button>
           <Button variant="outline" icon="filter" onClick={() => window.toast('Filtros avançados em breve.', 'info')}>Filtros avançados</Button>
-          <Button variant="primary" icon="plus" onClick={() => window.toast('Cadastro de lead em breve.', 'info')}>Novo Lead</Button>
+          <Button variant="primary" icon="plus" onClick={() => setShowLead(true)}>Novo Lead</Button>
         </div>
       </div>
 
@@ -148,6 +225,8 @@ function LeadsPage({ setRoute, setSubsel }) {
           <Button variant="ghost" size="sm" icon="chevRight" onClick={() => window.toast('Paginação em breve.', 'info')}/>
         </div>
       </div>
+
+      {showLead && <ModalNovoLead onClose={() => setShowLead(false)} onSaved={reloadLeads}/>}
     </div>
   );
 }
@@ -312,17 +391,90 @@ function SuggestedStep({ icon, label, sub, status }) {
   );
 }
 
+/* ---------- MODAL: Nova Cotação ---------- */
+function ModalNovaCotacao({ onClose, onSaved }) {
+  const token = React.useMemo(() => Math.random().toString(36).slice(2, 8).toUpperCase(), []);
+  const [f, setF] = React.useState({ building:'', supplier:'', lead:'', items:'1', deadline:'', line:'' });
+  const [saving, setSaving] = React.useState(false);
+  const set = (k, v) => setF(p => ({ ...p, [k]: v }));
+
+  const save = async () => {
+    if (!f.building.trim()) return window.toast('Prédio é obrigatório.', 'warning');
+    if (!f.supplier.trim()) return window.toast('Fornecedor é obrigatório.', 'warning');
+    if (!f.deadline) return window.toast('Prazo de retorno é obrigatório.', 'warning');
+    setSaving(true);
+    const { error } = await window.__VP_SB.sb.from('cotacoes').insert({
+      building: f.building, supplier: f.supplier,
+      lead: f.lead || null, items: parseInt(f.items) || 1,
+      deadline: f.deadline, status: 'Aguardando China',
+      token, line: f.line || null,
+      date: new Date().toISOString().slice(0, 10),
+    });
+    setSaving(false);
+    if (error) return window.toast('Erro: ' + error.message, 'error');
+    window.toast('Cotação criada!', 'success');
+    onSaved?.(); onClose();
+  };
+
+  return (
+    <Modal title="Nova Cotação China" onClose={onClose} width={520}
+      footer={<>
+        <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+        <Button variant="primary" onClick={save} disabled={saving}>
+          {saving ? 'Salvando…' : 'Criar Cotação'}
+        </Button>
+      </>}>
+      <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+        <div className="stack" style={{ gap:4 }}>
+          <label className="up-eyebrow muted">Prédio / Projeto *</label>
+          <input className="input" value={f.building} onChange={e => set('building', e.target.value)} placeholder="Ed. Itacolomi, Shopping Vila Olímpia…"/>
+        </div>
+        <div className="grid-2" style={{ gap:12 }}>
+          <div className="stack" style={{ gap:4 }}>
+            <label className="up-eyebrow muted">Fornecedor (China) *</label>
+            <input className="input" value={f.supplier} onChange={e => set('supplier', e.target.value)} placeholder="Ex.: Suzhou Vertical Co."/>
+          </div>
+          <div className="stack" style={{ gap:4 }}>
+            <label className="up-eyebrow muted">Linha marítima</label>
+            <input className="input" value={f.line} onChange={e => set('line', e.target.value)} placeholder="Ex.: MSC, Cosco…"/>
+          </div>
+        </div>
+        <div className="grid-2" style={{ gap:12 }}>
+          <div className="stack" style={{ gap:4 }}>
+            <label className="up-eyebrow muted">Lead de referência</label>
+            <input className="input" value={f.lead} onChange={e => set('lead', e.target.value)} placeholder="ID ou nome do lead"/>
+          </div>
+          <div className="stack" style={{ gap:4 }}>
+            <label className="up-eyebrow muted">Qtd. de itens</label>
+            <input className="input" type="number" min="1" value={f.items} onChange={e => set('items', e.target.value)}/>
+          </div>
+        </div>
+        <div className="stack" style={{ gap:4 }}>
+          <label className="up-eyebrow muted">Prazo de retorno *</label>
+          <input className="input" type="date" value={f.deadline} onChange={e => set('deadline', e.target.value)}/>
+        </div>
+        <div style={{ background:'var(--vp-gray-50)', padding:'10px 12px', fontSize:12, color:'var(--fg3)' }}>
+          Link público gerado: <span className="mono" style={{ color:'var(--fg1)' }}>vp.cn/{token}</span> · compartilhe com a fábrica para preenchimento sem login
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 /* ---------- COTAÇÕES China ---------- */
 function CotacoesPage({ setRoute, setSubsel }) {
   const [cotacoes, setCotacoes] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [status, setStatus] = React.useState("Todos");
+  const [showCot, setShowCot] = React.useState(false);
   const statuses = ["Todos", "Aguardando China", "Recebida", "Em análise", "Aprovada"];
 
-  React.useEffect(() => {
+  const reloadCotacoes = () => {
+    setLoading(true);
     window.__VP_SB.sb.from('cotacoes').select('*').order('date', { ascending: false })
       .then(({ data }) => { setCotacoes(data || []); setLoading(false); });
-  }, []);
+  };
+  React.useEffect(() => { reloadCotacoes(); }, []);
 
   if (loading) return <div style={{ textAlign:'center', padding:'60px 0', color:'var(--fg3)', fontSize:13 }}>Carregando…</div>;
 
@@ -337,7 +489,7 @@ function CotacoesPage({ setRoute, setSubsel }) {
         </div>
         <div className="page-head__r">
           <Button variant="outline" icon="link2" onClick={() => window.toast("Link público — próxima fase", "info")}>Link público</Button>
-          <Button variant="primary" icon="plus" onClick={() => window.toast("Nova cotação — próxima fase", "info")}>Nova Cotação</Button>
+          <Button variant="primary" icon="plus" onClick={() => setShowCot(true)}>Nova Cotação</Button>
         </div>
       </div>
 
@@ -401,6 +553,7 @@ function CotacoesPage({ setRoute, setSubsel }) {
           </tbody>
         </table>
       </div>
+      {showCot && <ModalNovaCotacao onClose={() => setShowCot(false)} onSaved={reloadCotacoes}/>}
     </div>
   );
 }

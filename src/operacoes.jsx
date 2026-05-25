@@ -2,19 +2,163 @@
    operacoes.jsx — Engenharia + Jurídico + Instalação
    ============================================================ */
 
+/* ---------- MODAL: Novo Projeto de Engenharia ---------- */
+function ModalNovoProjeto({ onClose, onSaved }) {
+  const [f, setF] = React.useState({
+    building: '', projeto: '', responsavel: '',
+    visita: '', status: 'Em vistoria', pendencia: '',
+    descricao: '',
+  });
+  const [saving, setSaving] = React.useState(false);
+  const set = (k, v) => setF(p => ({ ...p, [k]: v }));
+
+  const save = async () => {
+    if (!f.building.trim()) return window.toast('Prédio é obrigatório.', 'warning');
+    if (!f.responsavel.trim()) return window.toast('Responsável é obrigatório.', 'warning');
+    setSaving(true);
+    const { error } = await window.__VP_SB.sb.from('projetos').insert({
+      building: f.building,
+      projeto: f.projeto || null,
+      responsavel: f.responsavel,
+      visita: f.visita || null,
+      status: f.status,
+      pendencia: f.pendencia || null,
+      descricao: f.descricao || null,
+      laudo: 'Pendente',
+      arquivos: 0,
+    });
+    setSaving(false);
+    if (error) return window.toast('Erro: ' + error.message, 'error');
+    window.toast('Projeto criado com sucesso!', 'success');
+    onSaved?.(); onClose();
+  };
+
+  const fld = (label, key, type = 'text', ph = '', opts = null) => (
+    <div className="stack" style={{ gap: 4 }}>
+      <label className="up-eyebrow muted">{label}</label>
+      {opts
+        ? <select className="input" value={f[key]} onChange={e => set(key, e.target.value)}>
+            {opts.map(o => <option key={o}>{o}</option>)}
+          </select>
+        : <input className="input" type={type} value={f[key]}
+            onChange={e => set(key, e.target.value)} placeholder={ph}/>
+      }
+    </div>
+  );
+
+  return (
+    <Modal title="Novo Projeto de Engenharia" onClose={onClose} width={540}
+      footer={<>
+        <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+        <Button variant="primary" onClick={save} disabled={saving}>
+          {saving ? 'Salvando…' : 'Criar Projeto'}
+        </Button>
+      </>}>
+      <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+        {fld('Prédio / Empreendimento *', 'building', 'text', 'Ed. Itacolomi, Shopping Vila Olímpia…')}
+        {fld('Nome do projeto (referência interna)', 'projeto', 'text', 'Ex.: Modernização 4 elevadores Schindler')}
+        <div className="grid-2" style={{ gap:12 }}>
+          {fld('Responsável técnico *', 'responsavel', 'text', 'Engenheiro da VP')}
+          {fld('Data da visita técnica', 'visita', 'date')}
+        </div>
+        <div className="grid-2" style={{ gap:12 }}>
+          {fld('Status', 'status', 'text', '', ['Em vistoria','Aguardando laudo','Laudo emitido','Aprovado'])}
+          {fld('Pendência principal', 'pendencia', 'text', 'Ex.: Aguardar acesso ao poço')}
+        </div>
+        <div className="stack" style={{ gap:4 }}>
+          <label className="up-eyebrow muted">Descrição do escopo</label>
+          <textarea className="input" rows={3} value={f.descricao}
+            onChange={e => set('descricao', e.target.value)}
+            placeholder="Descreva equipamentos, quantidade, tipo de serviço…"
+            style={{ resize:'vertical', fontFamily:'inherit' }}/>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/* ---------- MODAL: Novo Contrato ---------- */
+function ModalNovoContrato({ onClose, onSaved }) {
+  const [f, setF] = React.useState({
+    client: '', projeto: '', lawyer: '',
+    value: '', status: 'Em redação', issued_date: '',
+  });
+  const [saving, setSaving] = React.useState(false);
+  const set = (k, v) => setF(p => ({ ...p, [k]: v }));
+
+  const save = async () => {
+    if (!f.client.trim()) return window.toast('Cliente é obrigatório.', 'warning');
+    setSaving(true);
+    const { error } = await window.__VP_SB.sb.from('contratos').insert({
+      client: f.client,
+      projeto: f.projeto || null,
+      lawyer: f.lawyer || null,
+      value: f.value ? parseFloat(f.value) : null,
+      status: f.status,
+      issued_date: f.issued_date || new Date().toISOString().slice(0, 10),
+      pages: 0,
+      redacted: 0,
+      days: 0,
+    });
+    setSaving(false);
+    if (error) return window.toast('Erro: ' + error.message, 'error');
+    window.toast('Contrato criado!', 'success');
+    onSaved?.(); onClose();
+  };
+
+  const fld = (label, key, type = 'text', ph = '', opts = null) => (
+    <div className="stack" style={{ gap: 4 }}>
+      <label className="up-eyebrow muted">{label}</label>
+      {opts
+        ? <select className="input" value={f[key]} onChange={e => set(key, e.target.value)}>
+            {opts.map(o => <option key={o}>{o}</option>)}
+          </select>
+        : <input className="input" type={type} value={f[key]}
+            onChange={e => set(key, e.target.value)} placeholder={ph}/>
+      }
+    </div>
+  );
+
+  return (
+    <Modal title="Novo Contrato" onClose={onClose} width={500}
+      footer={<>
+        <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+        <Button variant="primary" onClick={save} disabled={saving}>
+          {saving ? 'Salvando…' : 'Criar Contrato'}
+        </Button>
+      </>}>
+      <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+        {fld('Cliente *', 'client', 'text', 'Condomínio Ed. Itacolomi, Empresa XYZ…')}
+        <div className="grid-2" style={{ gap:12 }}>
+          {fld('Projeto associado', 'projeto', 'text', 'Referência interna')}
+          {fld('Advogado responsável', 'lawyer', 'text', 'Nome do advogado')}
+        </div>
+        <div className="grid-2" style={{ gap:12 }}>
+          {fld('Valor do contrato (R$)', 'value', 'number', '0')}
+          {fld('Data de emissão', 'issued_date', 'date')}
+        </div>
+        {fld('Status', 'status', 'text', '', ['Em redação','Aguardando assinatura','Em assinatura digital','Assinado'])}
+      </div>
+    </Modal>
+  );
+}
+
 /* ---------- ENGENHARIA ---------- */
 function EngenhariaPage({ setRoute }) {
   const [projetos, setProjetos] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [engTab, setEngTab] = React.useState("laudo");
   const [selectedProject, setSelectedProject] = React.useState(null);
+  const [showNovoProjeto, setShowNovoProjeto] = React.useState(false);
   // Stable photo IDs so they don't shuffle on re-render
   const photoIds = React.useMemo(() => ([3142, 5891, 7204, 2057, 4396, 6128]), []);
 
-  React.useEffect(() => {
+  const reloadProjetos = () => {
+    setLoading(true);
     window.__VP_SB.sb.from('projetos').select('*')
       .then(({ data }) => { setProjetos(data || []); setLoading(false); });
-  }, []);
+  };
+  React.useEffect(() => { reloadProjetos(); }, []);
 
   if (loading) return <div style={{ textAlign:'center', padding:'60px 0', color:'var(--fg3)', fontSize:13 }}>Carregando…</div>;
   return (
@@ -27,7 +171,7 @@ function EngenhariaPage({ setRoute }) {
         </div>
         <div className="page-head__r">
           <Button variant="outline" icon="calendar" onClick={() => window.toast("Calendário de visitas — próxima fase", "info")}>Calendário visitas</Button>
-          <Button variant="primary" icon="plus" onClick={() => window.toast("Novo projeto — próxima fase", "info")}>Novo projeto</Button>
+          <Button variant="primary" icon="plus" onClick={() => setShowNovoProjeto(true)}>Novo projeto</Button>
         </div>
       </div>
 
@@ -104,6 +248,7 @@ function EngenhariaPage({ setRoute }) {
           </div>
         )}
       </div>
+      {showNovoProjeto && <ModalNovoProjeto onClose={() => setShowNovoProjeto(false)} onSaved={reloadProjetos}/>}
     </div>
   );
 }
@@ -114,12 +259,15 @@ function JuridicoPage({ setRoute }) {
   const [loading, setLoading] = React.useState(true);
   const [filter, setFilter] = React.useState("Todos");
   const [selectedContract, setSelectedContract] = React.useState(null);
+  const [showNovoContrato, setShowNovoContrato] = React.useState(false);
   const filters = ["Todos", "Aguardando assinatura", "Em redação", "Em assinatura digital", "Assinado"];
 
-  React.useEffect(() => {
+  const reloadContratos = () => {
+    setLoading(true);
     window.__VP_SB.sb.from('contratos').select('*').order('issued_date', { ascending: false })
       .then(({ data }) => { setContratos(data || []); setLoading(false); });
-  }, []);
+  };
+  React.useEffect(() => { reloadContratos(); }, []);
 
   if (loading) return <div style={{ textAlign:'center', padding:'60px 0', color:'var(--fg3)', fontSize:13 }}>Carregando…</div>;
 
@@ -134,7 +282,7 @@ function JuridicoPage({ setRoute }) {
         </div>
         <div className="page-head__r">
           <Button variant="outline" icon="upload" onClick={() => window.toast("Importar minuta — próxima fase", "info")}>Importar minuta</Button>
-          <Button variant="primary" icon="plus" onClick={() => window.toast("Novo contrato — próxima fase", "info")}>Novo contrato</Button>
+          <Button variant="primary" icon="plus" onClick={() => setShowNovoContrato(true)}>Novo contrato</Button>
         </div>
       </div>
 
@@ -220,6 +368,7 @@ function JuridicoPage({ setRoute }) {
           Selecione um contrato acima para abrir o editor de redação.
         </div>
       )}
+      {showNovoContrato && <ModalNovoContrato onClose={() => setShowNovoContrato(false)} onSaved={reloadContratos}/>}
     </div>
   );
 }

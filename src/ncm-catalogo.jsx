@@ -4,6 +4,73 @@
    Fonte de dados: Supabase — tabela ncm_solicitacoes
    ============================================================ */
 
+/* ---------- MODAL: Novo Produto NCM ---------- */
+function ModalNovoProduto({ onClose, onSaved }) {
+  const [f, setF] = React.useState({
+    produto: '', ncm_atual: '', ncm_sugerido: '',
+    solicitante: '', responsavel: '',
+    descricao: '', observacoes: '',
+  });
+  const [saving, setSaving] = React.useState(false);
+  const set = (k, v) => setF(p => ({ ...p, [k]: v }));
+
+  const save = async () => {
+    if (!f.produto.trim()) return window.toast('Denominação é obrigatória.', 'warning');
+    setSaving(true);
+    const { error } = await window.__VP_SB.sb.from('ncm_solicitacoes').insert({
+      produto: f.produto,
+      ncm_atual: f.ncm_atual || null,
+      ncm_sugerido: f.ncm_sugerido || null,
+      solicitante: f.solicitante || null,
+      responsavel: f.responsavel || null,
+      descricao: f.descricao || null,
+      observacoes: f.observacoes || null,
+      status: 'EM_PREENCHIMENTO',
+    });
+    setSaving(false);
+    if (error) return window.toast('Erro: ' + error.message, 'error');
+    window.toast('Produto criado com sucesso!', 'success');
+    onSaved?.(); onClose();
+  };
+
+  const fld = (label, key, type = 'text', ph = '', multiline = false) => (
+    <div className="stack" style={{ gap: 4 }}>
+      <label className="up-eyebrow muted">{label}</label>
+      {multiline
+        ? <textarea className="input" rows={3} value={f[key]}
+            onChange={e => set(key, e.target.value)} placeholder={ph}
+            style={{ resize: 'vertical', fontFamily: 'inherit' }}/>
+        : <input className="input" type={type} value={f[key]}
+            onChange={e => set(key, e.target.value)} placeholder={ph}/>
+      }
+    </div>
+  );
+
+  return (
+    <Modal title="Novo Produto NCM" onClose={onClose} width={560}
+      footer={<>
+        <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+        <Button variant="primary" onClick={save} disabled={saving}>
+          {saving ? 'Salvando…' : 'Criar Produto'}
+        </Button>
+      </>}>
+      <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+        {fld('Denominação do produto *', 'produto', 'text', 'Ex.: Escova de segurança nylon 27mm, Botoeira de cabina LED…')}
+        <div className="grid-2" style={{ gap:12 }}>
+          {fld('NCM atual', 'ncm_atual', 'text', 'Ex.: 8431.31.00')}
+          {fld('NCM sugerido', 'ncm_sugerido', 'text', 'Ex.: 8431.39.90')}
+        </div>
+        <div className="grid-2" style={{ gap:12 }}>
+          {fld('Solicitante', 'solicitante', 'text', 'Nome de quem solicita')}
+          {fld('Responsável técnico', 'responsavel', 'text', 'Engenheiro responsável')}
+        </div>
+        {fld('Descrição técnica', 'descricao', 'text', 'Descreva o produto conforme Siscomex…', true)}
+        {fld('Observações internas', 'observacoes', 'text', 'Notas para o time (não vai ao Siscomex)', true)}
+      </div>
+    </Modal>
+  );
+}
+
 function NcmCatalogoPage({ setRoute }) {
   const [produtos, setProdutos] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
@@ -195,12 +262,15 @@ function NcmKanbanPage({ setRoute, setSubsel }) {
   const [solicitacoes, setSolicitacoes] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [view, setView] = React.useState("kanban");
+  const [showNovo, setShowNovo] = React.useState(false);
 
-  React.useEffect(() => {
+  const reloadNcm = () => {
+    setLoading(true);
     window.__VP_SB.sb.from('ncm_solicitacoes').select('*')
       .order('created_at', { ascending: false })
       .then(({ data }) => { setSolicitacoes(data || []); setLoading(false); });
-  }, []);
+  };
+  React.useEffect(() => { reloadNcm(); }, []);
 
   if (loading) return <div style={{ textAlign:'center', padding:'60px 0', color:'var(--fg3)', fontSize:13 }}>Carregando…</div>;
 
@@ -237,7 +307,7 @@ function NcmKanbanPage({ setRoute, setSubsel }) {
               <Icon.grid size={12} style={{ marginRight: 6 }}/>Kanban
             </button>
           </div>
-          <Button variant="primary" icon="plus" onClick={() => window.toast("Cadastro de produto em breve", "info")}>Novo produto</Button>
+          <Button variant="primary" icon="plus" onClick={() => setShowNovo(true)}>Novo produto</Button>
         </div>
       </div>
 
@@ -315,6 +385,7 @@ function NcmKanbanPage({ setRoute, setSubsel }) {
           </table>
         </div>
       )}
+      {showNovo && <ModalNovoProduto onClose={() => setShowNovo(false)} onSaved={reloadNcm}/>}
     </div>
   );
 }

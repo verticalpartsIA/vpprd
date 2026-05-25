@@ -295,7 +295,7 @@ function PropostasPage({ setRoute }) {
       .then(({ data }) => { setList(data || []); setLoading(false); });
   }, []);
 
-  const totalValor = list.reduce((s, p) => s + (p.value || 0), 0);
+  const totalValor = list.reduce((s, p) => s + (p.total || 0), 0);
   const fmtValorTotal = list.length > 0
     ? (totalValor >= 1e6 ? `R$ ${(totalValor / 1e6).toFixed(1)}M` : fmtBRL(totalValor))
     : '—';
@@ -309,7 +309,7 @@ function PropostasPage({ setRoute }) {
           <p className="page-head__sub">Wizard de 5 etapas · gera PDF + envia para assinatura digital · vincula contrato jurídico</p>
         </div>
         <div className="page-head__r">
-          <Button variant="outline" icon="download" onClick={() => window.csvDownload(list.map(p => ({ id:p.id, origem:p.origin, status:p.status, data:p.date, valor:p.value })), 'propostas.csv')}>Exportar pacote</Button>
+          <Button variant="outline" icon="download" onClick={() => window.csvDownload(list.map(p => ({ id:p.id, building:p.building, supplier:p.supplier, status:p.status, data:p.date, total_usd:p.total })), 'propostas.csv')}>Exportar pacote</Button>
           <Button variant="primary" icon="plus" onClick={() => setRoute("proposta-editor")}>Nova proposta</Button>
         </div>
       </div>
@@ -340,7 +340,7 @@ function PropostasPage({ setRoute }) {
                   <StatusBadge status={p.status || "Em andamento"}/>
                 </div>
                 <div className="row sb" style={{ marginTop: 10 }}>
-                  <div className="cell-money mono" style={{ fontSize: 16, fontWeight: 700 }}>{fmtBRL(p.value || 0)}</div>
+                  <div className="cell-money mono" style={{ fontSize: 16, fontWeight: 700 }}>{p.total ? fmtUSD(p.total) : '—'}</div>
                   <Button variant="ghost" size="sm" iconRight="arrowRight">Editar</Button>
                 </div>
               </div>

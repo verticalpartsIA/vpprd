@@ -16,7 +16,9 @@ function ModalNovoProjeto({ onClose, onSaved }) {
     if (!f.building.trim()) return window.toast('Prédio é obrigatório.', 'warning');
     if (!f.responsavel.trim()) return window.toast('Responsável é obrigatório.', 'warning');
     setSaving(true);
+    const id = 'PJ-' + Date.now().toString().slice(-6);
     const { error } = await window.__VP_SB.sb.from('projetos').insert({
+      id,
       building: f.building,
       projeto: f.projeto || null,
       responsavel: f.responsavel,
@@ -89,16 +91,17 @@ function ModalNovoContrato({ onClose, onSaved }) {
   const save = async () => {
     if (!f.client.trim()) return window.toast('Cliente é obrigatório.', 'warning');
     setSaving(true);
+    const id = 'CO-' + Date.now().toString().slice(-6);
     const { error } = await window.__VP_SB.sb.from('contratos').insert({
+      id,
       client: f.client,
-      projeto: f.projeto || null,
+      project_id: f.projeto || null,
       lawyer: f.lawyer || null,
       value: f.value ? parseFloat(f.value) : null,
       status: f.status,
       issued_date: f.issued_date || new Date().toISOString().slice(0, 10),
       pages: 0,
-      redacted: 0,
-      days: 0,
+      days_pending: 0,
     });
     setSaving(false);
     if (error) return window.toast('Erro: ' + error.message, 'error');
@@ -775,8 +778,8 @@ function ModalAgendarInstalacao({ onClose }) {
     if (!f.data) return window.toast('Data é obrigatória.', 'warning');
     setSaving(true);
     const { error } = await window.__VP_SB.sb.from('tarefas').insert({
-      t: `Instalação: ${f.obra}`, module: 'Instalação', prio: 'Alta',
-      time: f.horario, date: f.data,
+      title: `Instalação: ${f.obra}`, module: 'Instalação', priority: 'alta',
+      due_time: `${f.data} ${f.horario}`, role: 'admin',
     });
     setSaving(false);
     if (error) return window.toast('Erro: ' + error.message, 'error');

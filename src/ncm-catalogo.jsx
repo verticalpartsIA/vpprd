@@ -267,6 +267,8 @@ function NcmKanbanPage({ setRoute, setSubsel }) {
   const [loading, setLoading] = React.useState(true);
   const [view, setView] = React.useState("kanban");
   const [showNovo, setShowNovo] = React.useState(false);
+  const [dragging, setDragging] = React.useState(null); // { id, fromStatus }
+  const [dragOver, setDragOver] = React.useState(null); // coluna key
 
   const reloadNcm = () => {
     setLoading(true);
@@ -294,6 +296,24 @@ function NcmKanbanPage({ setRoute, setSubsel }) {
     else byCol.EM_PREENCHIMENTO.push(s);
   });
 
+  const handleDrop = async (targetStatus) => {
+    if (!dragging || dragging.fromStatus === targetStatus) {
+      setDragging(null); setDragOver(null); return;
+    }
+    const { id, fromStatus } = dragging;
+    setDragging(null); setDragOver(null);
+    // Optimistic update
+    setSolicitacoes(prev => prev.map(s => s.id === id ? { ...s, status: targetStatus } : s));
+    const { error } = await window.__VP_SB.sb
+      .from('ncm_solicitacoes').update({ status: targetStatus }).eq('id', id);
+    if (error) {
+      window.toast('Erro ao mover card: ' + error.message, 'error');
+      reloadNcm();
+    } else {
+      window.toast('Status → ' + targetStatus.replace(/_/g, ' ').toLowerCase(), 'success');
+    }
+  };
+
   return (
     <div className="page fade-in">
       <div className="page-head">
@@ -318,15 +338,23 @@ function NcmKanbanPage({ setRoute, setSubsel }) {
       {view === "kanban" ? (
         <div className="kanban">
           {columns.map(c => (
-            <div key={c.key} className="kanban__col">
+            <div key={c.key}
+              className={"kanban__col" + (dragOver === c.key && dragging?.fromStatus !== c.key ? " is-dragover" : "")}
+              onDragOver={(e) => { e.preventDefault(); setDragOver(c.key); }}
+              onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOver(null); }}
+              onDrop={(e) => { e.preventDefault(); handleDrop(c.key); }}>
               <div className={"kanban__col-head" + (byCol[c.key].length > 0 ? " is-active" : "")}>
                 <span className="kanban__col-title">{c.label}</span>
                 <span className="kanban__col-count">{byCol[c.key].length}</span>
               </div>
               <div className="kanban__col-body">
                 {byCol[c.key].map(s => (
-                  <div key={s.id} className="kanban__card"
-                    onClick={() => { setSubsel?.({ ncmProduct: s }); setRoute("ncm-detail"); }}>
+                  <div key={s.id}
+                    className={"kanban__card" + (dragging?.id === s.id ? " is-dragging" : "")}
+                    draggable
+                    onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; setDragging({ id: s.id, fromStatus: c.key }); }}
+                    onDragEnd={() => { setDragging(null); setDragOver(null); }}
+                    onClick={() => { if (!dragging) { setSubsel?.({ ncmProduct: s }); setRoute("ncm-detail"); } }}>
                     <div className="kanban__card-eyebrow">#{s.id}</div>
                     <div className="kanban__card-title">{s.produto || <i className="muted">(sem denominação)</i>}</div>
                     {s.ncm_atual
@@ -346,7 +374,9 @@ function NcmKanbanPage({ setRoute, setSubsel }) {
                   </div>
                 ))}
                 {byCol[c.key].length === 0 ? (
-                  <div style={{ padding: 18, textAlign: "center", color: "var(--fg3)", fontSize: 11, fontStyle: "italic" }}>vazio</div>
+                  <div style={{ padding: 18, textAlign: "center", color: "var(--fg3)", fontSize: 11, fontStyle: "italic" }}>
+                    {dragOver === c.key && dragging ? "Soltar aqui →" : "vazio"}
+                  </div>
                 ) : null}
               </div>
             </div>

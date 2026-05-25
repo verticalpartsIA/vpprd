@@ -49,14 +49,23 @@ function NCMStepper({ status }) {
    ============================================================ */
 function NCMTab({ productId, onOpenLogComex }) {
   const N = window.__VP_NCM;
-  const original = productId ? N.produtos.find(p => p.id === productId) : N.produtos.find(p => p.status === "EM_PREENCHIMENTO");
-  const [data, setData] = React.useState(() => original || N.produtos[7]);
+  const produtos = N && Array.isArray(N.produtos) ? N.produtos : [];
+  const original = produtos.length
+    ? (productId
+        ? produtos.find(p => String(p.id) === String(productId))
+        : produtos.find(p => p.status === "EM_PREENCHIMENTO"))
+    : null;
+  const [data, setData] = React.useState(() => original || produtos[0] || {});
 
   const set = (k, v) => setData(d => ({ ...d, [k]: v }));
   const setAttr = (k, v) => setData(d => ({ ...d, atributos: { ...d.atributos, [k]: v } }));
 
-  const ncmInfo = data.ncm ? N.ncmCatalog.find(c => c.code === data.ncm) : null;
-  const attrs = data.ncm && N.attributesByNcm[data.ncm] ? N.attributesByNcm[data.ncm] : [];
+  if (!N || !N.produtos || !data.status) {
+    return <div style={{ padding: 40, textAlign: 'center', color: 'var(--fg3)', fontSize: 13 }}>Carregando dados NCM…</div>;
+  }
+
+  const ncmInfo = data.ncm ? (N.ncmCatalog || []).find(c => c.code === data.ncm) : null;
+  const attrs = data.ncm && N.attributesByNcm && N.attributesByNcm[data.ncm] ? N.attributesByNcm[data.ncm] : [];
 
   const denomLen = (data.denominacao || "").length;
   const detLen = (data.detalhamento || "").length;

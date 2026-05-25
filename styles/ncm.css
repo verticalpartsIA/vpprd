@@ -486,6 +486,12 @@
 }
 .kanban__card-foot .who { display: inline-flex; align-items: center; gap: 4px; }
 
+/* Drag-and-drop states */
+.kanban__card { cursor: grab; }
+.kanban__card.is-dragging { opacity: .35; transform: scale(.97); cursor: grabbing; }
+.kanban__col.is-dragover { background: #FFFDE7; border-color: var(--vp-yellow); }
+.kanban__col.is-dragover .kanban__col-body { outline: 2px dashed var(--vp-yellow); outline-offset: -4px; }
+
 /* ========== Catálogo: painel lista+detalhe ====================== */
 .cat-split {
   display: grid;

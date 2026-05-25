@@ -65,7 +65,11 @@ function FinanceiroPage() {
 }
 
 function GatilhoCard({ g }) {
-  const dueColor = g.daysLeft <= 2 ? "var(--vp-danger)" : g.daysLeft <= 7 ? "var(--vp-warning)" : "var(--vp-success)";
+  const daysLeft = g.days_left ?? g.daysLeft ?? 0;
+  const dueDate  = g.due_date  ?? g.dueDate  ?? null;
+  const revFrom  = g.reverse_from ?? g.reverseFrom ?? null;
+  const chain    = Array.isArray(g.chain) ? g.chain : [];
+  const dueColor = daysLeft <= 2 ? "var(--vp-danger)" : daysLeft <= 7 ? "var(--vp-warning)" : "var(--vp-success)";
   return (
     <div style={{ background: "#fff", border: "1px solid var(--border)", padding: 0, position: "relative" }}>
       <span style={{ position: "absolute", top: 0, left: 0, width: 24, height: 3, background: "var(--vp-yellow)" }}/>
@@ -81,14 +85,14 @@ function GatilhoCard({ g }) {
         </div>
         <div>
           <div className="up-eyebrow muted">Vencimento</div>
-          <div style={{ fontSize: 14, fontWeight: 700, marginTop: 4, color: dueColor }}>{fmtDateLong(g.dueDate)}</div>
-          <div className="mono small" style={{ color: dueColor }}>{g.daysLeft > 0 ? `em ${g.daysLeft} dias` : `vencido há ${-g.daysLeft}d`}</div>
+          <div style={{ fontSize: 14, fontWeight: 700, marginTop: 4, color: dueColor }}>{fmtDateLong(dueDate)}</div>
+          <div className="mono small" style={{ color: dueColor }}>{daysLeft > 0 ? `em ${daysLeft} dias` : daysLeft < 0 ? `vencido há ${-daysLeft}d` : "vence hoje"}</div>
         </div>
         <div className="row gap-2" style={{ justifyContent: "flex-end" }}>
           {g.status === "ok" ? <Badge variant="success" dot>OK</Badge>
            : g.status === "atencao" ? <Badge variant="warning" dot>Atenção</Badge>
            : <Badge variant="danger" dot>Pendente</Badge>}
-          <Button variant={g.daysLeft <= 2 ? "primary" : "outline"} size="sm" icon="check"
+          <Button variant={daysLeft <= 2 ? "primary" : "outline"} size="sm" icon="check"
             onClick={() => window.toast(`Gatilho "${g.trigger}" confirmado`, "success")}>Confirmar</Button>
         </div>
       </div>
@@ -96,24 +100,29 @@ function GatilhoCard({ g }) {
       <div style={{ padding: "14px 20px", background: "var(--vp-gray-50)" }}>
         <div className="up-eyebrow muted" style={{ marginBottom: 10 }}>
           <Icon.history size={11} style={{ verticalAlign: "middle", marginRight: 4 }}/>
-          Prazo reverso · base: {g.reverseFrom}
+          Prazo reverso · base: {revFrom || "—"}
         </div>
-        <div className="prazo-chain">
-          {g.chain.map((c, i) => {
-            const lastIdx = g.chain.length - 1;
-            const cls = i === lastIdx ? "current" : i < lastIdx - 1 ? "success" : "warning";
-            return (
-              <div key={i} className={"prazo-step " + cls}>
-                <div className="prazo-step__lbl">Etapa {i + 1}</div>
-                <div className="prazo-step__t">{c.split(" — ")[0] || c}</div>
-                {c.includes(" — ") ? <div className="prazo-step__d">{c.split(" — ")[1]}</div> : null}
-                {i < g.chain.length - 1 ? (
-                  <div className="prazo-step__arrow"><Icon.arrowRight size={10}/></div>
-                ) : null}
-              </div>
-            );
-          })}
-        </div>
+        {chain.length === 0 ? (
+          <div style={{ fontSize: 12, color: "var(--fg3)", fontStyle: "italic" }}>Cadeia de prazos não configurada.</div>
+        ) : (
+          <div className="prazo-chain">
+            {chain.map((c, i) => {
+              const lastIdx = chain.length - 1;
+              const cls = i === lastIdx ? "current" : i < lastIdx - 1 ? "success" : "warning";
+              const label = String(c);
+              return (
+                <div key={i} className={"prazo-step " + cls}>
+                  <div className="prazo-step__lbl">Etapa {i + 1}</div>
+                  <div className="prazo-step__t">{label.split(" — ")[0] || label}</div>
+                  {label.includes(" — ") ? <div className="prazo-step__d">{label.split(" — ")[1]}</div> : null}
+                  {i < chain.length - 1 ? (
+                    <div className="prazo-step__arrow"><Icon.arrowRight size={10}/></div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -78,12 +78,15 @@ function NcmCatalogoPage({ setRoute }) {
   const [search, setSearch] = React.useState("");
   const [selectedId, setSelectedId] = React.useState(null);
   const [detailTab, setDetailTab] = React.useState("dados");
+  const [showNovo, setShowNovo] = React.useState(false);
 
-  React.useEffect(() => {
+  const reloadProdutos = () => {
+    setLoading(true);
     window.__VP_SB.sb.from('ncm_solicitacoes').select('*')
       .order('created_at', { ascending: false })
       .then(({ data }) => { setProdutos(data || []); setLoading(false); });
-  }, []);
+  };
+  React.useEffect(() => { reloadProdutos(); }, []);
 
   if (loading) return <div style={{ textAlign:'center', padding:'60px 0', color:'var(--fg3)', fontSize:13 }}>Carregando…</div>;
 
@@ -110,7 +113,7 @@ function NcmCatalogoPage({ setRoute }) {
         </div>
         <div className="page-head__r">
           <Button variant="outline" icon="download" onClick={() => window.toast("Exportação CSV em breve", "info")}>Exportar</Button>
-          <Button variant="primary" icon="plus" onClick={() => setRoute("ncm-kanban")}>Novo produto</Button>
+          <Button variant="primary" icon="plus" onClick={() => setShowNovo(true)}>Novo produto</Button>
         </div>
       </div>
 
@@ -218,6 +221,7 @@ function NcmCatalogoPage({ setRoute }) {
           </div>
         )}
       </div>
+      {showNovo && <ModalNovoProduto onClose={() => setShowNovo(false)} onSaved={reloadProdutos}/>}
     </div>
   );
 }

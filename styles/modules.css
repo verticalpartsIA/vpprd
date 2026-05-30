@@ -170,6 +170,13 @@
 .gantt-sw.future { background: repeating-linear-gradient(135deg, var(--vp-gray-100) 0 3px, var(--vp-gray-200) 3px 6px); }
 .gantt-sw.today { background: var(--vp-danger); width: 3px; height: 12px; }
 
+.project-kanban {
+  grid-template-columns: repeat(5, minmax(150px, 1fr));
+}
+.project-kanban__card .kanban__card-foot {
+  justify-content: space-between;
+}
+
 /* ====== MAP / ship tracking ====================================== */
 .map-frame {
   position: relative;

@@ -1,5 +1,5 @@
 /* ============================================================
-   ncm-data.js — Mock data para módulo NCM / Ficha Técnica
+   ncm-data.js — catálogo técnico base para módulo NCM / Ficha Técnica
    Atrelado a projetos de engenharia existentes
    ============================================================ */
 

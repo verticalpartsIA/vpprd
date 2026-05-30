@@ -275,6 +275,7 @@ function JuridicoPage({ setRoute }) {
   if (loading) return <div style={{ textAlign:'center', padding:'60px 0', color:'var(--fg3)', fontSize:13 }}>Carregando…</div>;
 
   const rows = contratos.filter(c => filter === "Todos" || c.status === filter);
+  const activeContract = selectedContract || rows[0];
   return (
     <div className="page fade-in">
       <div className="page-head">
@@ -292,8 +293,15 @@ function JuridicoPage({ setRoute }) {
       <div className="grid-4" style={{ marginBottom: 20 }}>
         <KPI label="Em redação" value={contratos.filter(c => c.status === "Em redação").length} sub="aguardando" icon="edit"/>
         <KPI label="Em assinatura" value={contratos.filter(c => c.status === "Em assinatura digital").length} sub="docusign" icon="signature"/>
-        <KPI label="SLA aprovação" value="—" sub="sem dados suficientes" icon="clock"/>
-        <KPI label="Atrasados" value="—" sub="sem dados suficientes" icon="warning"/>
+        {(() => {
+          const pend = contratos.filter(c => c.status !== "Assinado");
+          const sla  = pend.length ? (pend.reduce((s, c) => s + (c.days_pending || 0), 0) / pend.length).toFixed(1) : "0";
+          const atr  = contratos.filter(c => (c.days_pending || 0) > 7).length;
+          return <>
+            <KPI label="SLA aprovação" value={sla} unit="d" sub="contratos abertos" icon="clock"/>
+            <KPI label="Atrasados" value={String(atr)} sub="ação necessária" icon="warning"/>
+          </>;
+        })()}
       </div>
 
       <div className="tbar">
@@ -331,7 +339,7 @@ function JuridicoPage({ setRoute }) {
                 onClick={() => setSelectedContract(c)}>
                 <td>
                   <div className="cell-main">{c.id}</div>
-                  <div className="cell-sub">{fmtDate(c.issued || c.issued_date)} · {c.projeto}</div>
+                  <div className="cell-sub">{fmtDate(c.issued || c.issued_date)} · {c.projeto || c.project_id}</div>
                 </td>
                 <td>{c.client}</td>
                 <td><span className="cell-num">{c.pages}</span></td>
@@ -345,9 +353,11 @@ function JuridicoPage({ setRoute }) {
                 <td><StatusBadge status={c.status}/></td>
                 <td className="cell-money">{fmtBRL(c.value)}</td>
                 <td>
-                  <span className={"cell-num " + (c.days > 7 ? "" : "")} style={{ color: c.days > 7 ? "var(--vp-danger)" : c.days > 0 ? "var(--vp-warning-ink)" : "var(--fg3)" }}>
-                    {c.days === 0 ? "—" : c.days + "d"}
-                  </span>
+                  {(() => { const d = c.days ?? c.days_pending ?? 0; return (
+                    <span className="cell-num" style={{ color: d > 7 ? "var(--vp-danger)" : d > 0 ? "var(--vp-warning-ink)" : "var(--fg3)" }}>
+                      {d === 0 ? "—" : d + "d"}
+                    </span>
+                  ); })()}
                 </td>
                 <td><Button variant="ghost" size="sm" icon="chevRight"/></td>
               </tr>
@@ -356,9 +366,9 @@ function JuridicoPage({ setRoute }) {
         </table>
       </div>
 
-      {selectedContract ? (
-        <Card title={`${selectedContract.id} · ${selectedContract.client || ""}`}
-          sub={`${selectedContract.pages || "—"} páginas · ${selectedContract.redacted || 0} redações · ${selectedContract.lawyer || "—"}`}
+      {activeContract ? (
+        <Card title={`${activeContract.id} · ${activeContract.client || ""}`}
+          sub={`${activeContract.pages || "—"} páginas · ${activeContract.redacted || 0} redações · ${activeContract.lawyer || "—"}`}
           action={<>
             <Button variant="outline" size="sm" icon="download" onClick={() => { window.toast("Abrindo impressão — salve como PDF.", "info"); setTimeout(() => window.print(), 200); }}>Baixar PDF redigido</Button>
             <Button variant="outline" size="sm" icon="eye" onClick={() => { window.toast("Versão original — abrindo impressão.", "info"); setTimeout(() => window.print(), 200); }}>Versão original</Button>
@@ -368,7 +378,7 @@ function JuridicoPage({ setRoute }) {
         </Card>
       ) : (
         <div style={{ display:'flex', alignItems:'center', justifyContent:'center', border:'1px dashed var(--border)', color:'var(--fg3)', fontSize:13, padding:'60px 20px', textAlign:'center' }}>
-          Selecione um contrato acima para abrir o editor de redação.
+          Nenhum contrato cadastrado.
         </div>
       )}
       {showNovoContrato && <ModalNovoContrato onClose={() => setShowNovoContrato(false)} onSaved={reloadContratos}/>}

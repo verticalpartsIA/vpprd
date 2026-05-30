@@ -163,15 +163,15 @@ function ImportacaoPage({ setRoute, setSubsel }) {
                 </td>
                 <td>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
-                    <span>{(e.from || "—").split(" ")[0]}</span>
+                    <span>{(e.from || e.origin || "—").split(" ")[0]}</span>
                     <Icon.arrowRight size={12} color="var(--vp-yellow)"/>
-                    <span>{(e.to || "—").split(" ")[0]}</span>
+                    <span>{(e.to || e.destination || "—").split(" ")[0]}</span>
                   </div>
-                  <div className="cell-sub">{e.containers}× {e.type}</div>
+                  <div className="cell-sub">{e.containers}× {e.type || e.container_type}</div>
                 </td>
                 <td>
                   <div className="cell-num">{fmtDate(e.eta)}</div>
-                  {e.eta !== e.etaOriginal ? <div className="cell-sub" style={{ color: "var(--vp-danger)" }}>antes: {fmtDate(e.etaOriginal)}</div> : null}
+                  {(e.etaOriginal || e.eta_original) && e.eta !== (e.etaOriginal || e.eta_original) ? <div className="cell-sub" style={{ color: "var(--vp-danger)" }}>antes: {fmtDate(e.etaOriginal || e.eta_original)}</div> : null}
                 </td>
                 <td style={{ width: 160 }}>
                   <div className="progress" style={{ marginBottom: 4 }}>
@@ -214,7 +214,7 @@ function ImportacaoDetail({ embarque, setRoute }) {
         <div className="page-head__l">
           <div className="page-head__eyebrow"><span className="vp-rule"/>{e.id} · {e.line}</div>
           <h1 className="page-head__title">{e.vessel}</h1>
-          <p className="page-head__sub">BL {e.bl} · {e.containers}× container {e.type} · {e.client}</p>
+          <p className="page-head__sub">BL {e.bl} · {e.containers}× container {e.type || e.container_type} · {e.client}</p>
           <div className="row gap-3" style={{ marginTop: 4 }}>
             <StatusBadge status={e.status}/>
             {e.channel ? <Badge variant={e.channel === "Verde" ? "success" : "warning"} dot>Canal {e.channel}</Badge> : null}
@@ -230,9 +230,9 @@ function ImportacaoDetail({ embarque, setRoute }) {
 
       <div className="split--wide split">
         <div className="stack">
-          <Card title="Linha do tempo do embarque" sub={e.from + " → " + e.to}>
+          <Card title="Linha do tempo do embarque" sub={(e.from || e.origin || "—") + " → " + (e.to || e.destination || "—")}>
             <div className="timeline">
-              {e.milestones.map((m, i) => (
+              {(e.milestones || []).map((m, i) => (
                 <div key={i} className={"timeline__row " + m.state}>
                   <div className="timeline__node"/>
                   <div>
@@ -240,7 +240,7 @@ function ImportacaoDetail({ embarque, setRoute }) {
                     {m.note ? <div className="timeline__sub" style={{ color: "var(--vp-warning-ink)" }}>{m.note}</div> : null}
                   </div>
                   <div className="timeline__meta">{m.date}</div>
-                  {i < e.milestones.length - 1 ? <div className="timeline__rail"/> : null}
+                  {i < (e.milestones || []).length - 1 ? <div className="timeline__rail"/> : null}
                 </div>
               ))}
             </div>
@@ -259,9 +259,9 @@ function ImportacaoDetail({ embarque, setRoute }) {
             </div>
           </Card>
 
-          <Card title="Documentos" sub={e.docs.length + " arquivos"} action={<Button variant="outline" size="sm" icon="upload">Adicionar</Button>}>
+          <Card title="Documentos" sub={(e.docs || []).length + " arquivos"} action={<Button variant="outline" size="sm" icon="upload">Adicionar</Button>}>
             <div className="grid-3" style={{ gap: 10 }}>
-              {e.docs.map((d, i) => (
+              {(e.docs || []).map((d, i) => (
                 <div key={i} style={{ padding: 12, background: "var(--vp-gray-50)", border: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
                   <Icon.fileText size={18} color={d.includes("✓") ? "var(--vp-success)" : "var(--fg3)"}/>
                   <div style={{ fontSize: 12, fontWeight: 500 }}>{d}</div>
@@ -276,16 +276,16 @@ function ImportacaoDetail({ embarque, setRoute }) {
             <KvBlock label="BL" value={e.bl} mono/>
             <KvBlock label="Linha" value={e.line}/>
             <KvBlock label="Navio" value={e.vessel}/>
-            <KvBlock label="Quantidade" value={`${e.containers}× ${e.type}`}/>
-            <KvBlock label="Origem" value={e.from}/>
-            <KvBlock label="Destino" value={e.to}/>
+            <KvBlock label="Quantidade" value={`${e.containers}× ${e.type || e.container_type}`}/>
+            <KvBlock label="Origem" value={e.from || e.origin}/>
+            <KvBlock label="Destino" value={e.to || e.destination}/>
           </Card>
 
           <Card title="Datas" sharp>
             <KvBlock label="ETD" value={fmtDateLong(e.etd)}/>
-            <KvBlock label="ETA original" value={fmtDateLong(e.etaOriginal)}/>
+            <KvBlock label="ETA original" value={fmtDateLong(e.etaOriginal || e.eta_original)}/>
             <KvBlock label="ETA atualizada" value={fmtDateLong(e.eta)}/>
-            {e.eta !== e.etaOriginal ? <div className="alert danger" style={{ marginTop: 8 }}><Icon.warning/><div><div className="alert__title">Atraso detectado</div><div className="alert__sub mono">Diferença: +3 dias</div></div></div> : null}
+            {(e.etaOriginal || e.eta_original) && e.eta !== (e.etaOriginal || e.eta_original) ? <div className="alert danger" style={{ marginTop: 8 }}><Icon.warning/><div><div className="alert__title">Atraso detectado</div><div className="alert__sub mono">Diferença: +3 dias</div></div></div> : null}
           </Card>
 
           <Card title="Trigger Financeiro" sharp>
@@ -305,6 +305,7 @@ function ImportacaoDetail({ embarque, setRoute }) {
 function ImportacaoRastreamento({ setRoute }) {
   const [embarques, setEmbarques] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
+  const [active, setActive] = React.useState(null);
 
   React.useEffect(() => {
     window.__VP_SB.sb.from('embarques').select('*').order('eta')
@@ -314,8 +315,8 @@ function ImportacaoRastreamento({ setRoute }) {
   if (loading) return <div style={{ textAlign:'center', padding:'60px 0', color:'var(--fg3)', fontSize:13 }}>Carregando…</div>;
 
   const ships = embarques.filter(e => e.lat !== null && e.lat !== undefined);
-  const [active, setActive] = React.useState(ships.length > 0 ? ships[0].id : null);
-  const activeShip = ships.find(s => s.id === active);
+  const activeId = active || (ships[0] && ships[0].id) || null;
+  const activeShip = ships.find(s => s.id === activeId);
 
   return (
     <div className="page fade-in" style={{ paddingBottom: 32 }}>
@@ -337,7 +338,7 @@ function ImportacaoRastreamento({ setRoute }) {
       <div className="grid-2" style={{ gap: 20, gridTemplateColumns: "1fr 360px" }}>
         <Card sharp={false} padding="0">
           <div className="map-frame" style={{ height: 600 }}>
-            <ShipMap mainShip={activeShip} ships={ships} onClick={(s) => setActive(s.id)} active={active}/>
+            <ShipMap mainShip={activeShip} ships={ships} onClick={(s) => setActive(s.id)} active={activeId}/>
           </div>
         </Card>
 
@@ -349,22 +350,22 @@ function ImportacaoRastreamento({ setRoute }) {
                   onClick={() => setActive(s.id)}
                   style={{
                     padding: 12,
-                    background: active === s.id ? "#000" : "#fff",
-                    color: active === s.id ? "#fff" : "var(--fg1)",
-                    border: "1px solid " + (active === s.id ? "#000" : "var(--border)"),
+                    background: activeId === s.id ? "#000" : "#fff",
+                    color: activeId === s.id ? "#fff" : "var(--fg1)",
+                    border: "1px solid " + (activeId === s.id ? "#000" : "var(--border)"),
                     cursor: "pointer",
                     position: "relative",
                   }}>
-                  {active === s.id ? <span style={{ position: "absolute", top: 0, left: 0, width: 4, height: "100%", background: "var(--vp-yellow)" }}/> : null}
+                  {activeId === s.id ? <span style={{ position: "absolute", top: 0, left: 0, width: 4, height: "100%", background: "var(--vp-yellow)" }}/> : null}
                   <div className="row sb">
                     <div className="cell-main" style={{ color: "inherit", fontSize: 13 }}>{s.vessel}</div>
-                    <span className="mono small" style={{ color: active === s.id ? "var(--vp-yellow)" : "var(--fg3)" }}>{Math.round(s.position * 100)}%</span>
+                    <span className="mono small" style={{ color: activeId === s.id ? "var(--vp-yellow)" : "var(--fg3)" }}>{Math.round(s.position * 100)}%</span>
                   </div>
                   <div className="cell-sub" style={{ marginTop: 4 }}>{s.line} · BL {s.bl}</div>
-                  <div className="progress" style={{ marginTop: 8, background: active === s.id ? "var(--vp-gray-900)" : "var(--vp-gray-200)" }}>
+                  <div className="progress" style={{ marginTop: 8, background: activeId === s.id ? "var(--vp-gray-900)" : "var(--vp-gray-200)" }}>
                     <span style={{ width: (s.position * 100) + "%" }}/>
                   </div>
-                  <div className="row sb mono small" style={{ marginTop: 8, color: active === s.id ? "rgba(255,255,255,.7)" : "var(--fg3)" }}>
+                  <div className="row sb mono small" style={{ marginTop: 8, color: activeId === s.id ? "rgba(255,255,255,.7)" : "var(--fg3)" }}>
                     <span>{s.speed} kn · rumo {s.heading}°</span>
                     <span>ETA {fmtDate(s.eta)}</span>
                   </div>
@@ -376,8 +377,8 @@ function ImportacaoRastreamento({ setRoute }) {
           {activeShip ? (
             <Card title="Detalhe" sub={activeShip.id} sharp>
               <KvBlock label="Cliente" value={activeShip.client}/>
-              <KvBlock label="Conteúdo" value={`${activeShip.containers}× ${activeShip.type}`}/>
-              <KvBlock label="Trajeto" value={`${activeShip.from} → ${activeShip.to}`}/>
+              <KvBlock label="Conteúdo" value={`${activeShip.containers}× ${activeShip.type || activeShip.container_type}`}/>
+              <KvBlock label="Trajeto" value={`${activeShip.from || activeShip.origin} → ${activeShip.to || activeShip.destination}`}/>
               <KvBlock label="ETA" value={fmtDateLong(activeShip.eta)}/>
               <Button variant="primary" size="sm" iconRight="arrowRight" style={{ width: "100%", marginTop: 8 }} onClick={() => setRoute("importacao")}>Abrir embarque</Button>
             </Card>
@@ -443,11 +444,13 @@ function ShipMap({ mainShip, ships = [], onClick, active }) {
 
       {/* Routes for all ships */}
       {allShips.map((s) => {
-        const start = s.from.startsWith("Shanghai") ? portShanghai
-                    : s.from.startsWith("Ningbo") ? portNingbo
-                    : s.from.startsWith("Qingdao") ? portQingdao
+        const from = s.from || s.origin || "";
+        const to   = s.to   || s.destination || "";
+        const start = from.startsWith("Shanghai") || from.startsWith("Xangai") ? portShanghai
+                    : from.startsWith("Ningbo") ? portNingbo
+                    : from.startsWith("Qingdao") ? portQingdao
                     : portShanghai;
-        const end = s.to.startsWith("Santos") ? portSantos : portItaguai;
+        const end = to.startsWith("Itaguaí") || to.startsWith("Itaguai") ? portItaguai : portSantos;
         const cur = project(s.lat, s.lng);
         return (
           <RouteAndShip key={s.id} start={start} end={end} cur={cur} ship={s}
@@ -474,7 +477,7 @@ function ShipMap({ mainShip, ships = [], onClick, active }) {
             <dt>Velocidade</dt><dd>{mainShip.speed} kn</dd>
             <dt>Rumo</dt><dd>{mainShip.heading}°</dd>
             <dt>Lat/Lng</dt><dd>{mainShip.lat}, {mainShip.lng}</dd>
-            <dt>ETA</dt><dd style={{ color: mainShip.eta !== mainShip.etaOriginal ? "var(--vp-danger)" : "var(--fg1)" }}>{fmtDate(mainShip.eta)}</dd>
+            <dt>ETA</dt><dd style={{ color: (mainShip.etaOriginal || mainShip.eta_original) && mainShip.eta !== (mainShip.etaOriginal || mainShip.eta_original) ? "var(--vp-danger)" : "var(--fg1)" }}>{fmtDate(mainShip.eta)}</dd>
           </dl>
         </div>
       ) : null}

@@ -1,6 +1,6 @@
 /* ============================================================
    dashboard.jsx — Dashboard Principal
-   Dados reais via window.__VP_SB (Supabase); fallback para window.__VP_DATA (mock).
+   Dados reais via window.__VP_SB (Supabase).
    ============================================================ */
 
 function GanttChart({ projetos, onClick, today = 60 }) {
@@ -66,7 +66,7 @@ function ProjectList({ projetos }) {
   );
 }
 
-function ProjectKanban({ projetos }) {
+function ProjectKanban({ projetos, onMove }) {
   const phases = ['Projeto', 'Fabricação', 'Importação', 'Instalação', 'Entrega'];
   const byPhase = {};
   phases.forEach(ph => { byPhase[ph] = []; });
@@ -78,40 +78,59 @@ function ProjectKanban({ projetos }) {
     <div className="muted" style={{ padding: '24px 0', textAlign: 'center', fontSize: 13 }}>Nenhum projeto cadastrado.</div>
   );
   return (
-    <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+    <div className="kanban project-kanban">
       {phases.map(ph => (
-        <div key={ph} style={{ minWidth: 130, flex: '0 0 130px' }}>
-          <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8, color: 'var(--fg3)' }}>{ph}</div>
+        <div key={ph} className="kanban__col">
+          <div className={"kanban__col-head" + (byPhase[ph].length > 0 ? " is-active" : "")}>
+            <span className="kanban__col-title">{ph}</span>
+            <span className="kanban__col-count">{byPhase[ph].length}</span>
+          </div>
+          <div className="kanban__col-body">
           {byPhase[ph].map(p => (
-            <div key={p.id} style={{ background: 'var(--bg2)', borderRadius: 4, padding: '8px 10px', marginBottom: 6, fontSize: 12 }}>
-              <div style={{ fontWeight: 600, lineHeight: 1.3, marginBottom: 2 }}>{p.name}</div>
-              <div style={{ color: 'var(--fg3)', fontSize: 11 }}>{p.client}</div>
+            <div key={p.id} className="kanban__card project-kanban__card">
+              <div className="kanban__card-eyebrow">{p.id}</div>
+              <div className="kanban__card-title">{p.name}</div>
+              <div className="kanban__card-ncm muted">{p.client}</div>
+              <div className="kanban__card-foot">
+                <Button variant="ghost" size="sm" icon="chevLeft" aria-label={`Mover ${p.name} para fase anterior`}
+                  disabled={phases.indexOf(ph) === 0}
+                  onClick={() => onMove?.(p, phases[Math.max(0, phases.indexOf(ph) - 1)])}/>
+                <Button variant="ghost" size="sm" icon="chevRight" aria-label={`Mover ${p.name} para próxima fase`}
+                  disabled={phases.indexOf(ph) === phases.length - 1}
+                  onClick={() => onMove?.(p, phases[Math.min(phases.length - 1, phases.indexOf(ph) + 1)])}/>
+              </div>
             </div>
           ))}
-          {!byPhase[ph].length && <div style={{ color: 'var(--fg3)', fontSize: 11, padding: '4px 0' }}>—</div>}
+          {!byPhase[ph].length && <div style={{ color: 'var(--fg3)', fontSize: 11, padding: 18, textAlign: 'center' }}>vazio</div>}
+          </div>
         </div>
       ))}
     </div>
   );
 }
 
-function ModalNovaTask({ onClose }) {
+function ModalNovaTask({ role, onClose, onSaved }) {
   const [titulo, setTitulo] = React.useState('');
   const [modulo, setModulo] = React.useState('Comercial');
   const [prio, setPrio] = React.useState('Média');
+  const [hora, setHora] = React.useState('09:00');
   const [saving, setSaving] = React.useState(false);
 
   const save = async () => {
     if (!titulo.trim()) return window.toast('Título é obrigatório.', 'warning');
     setSaving(true);
     const { error } = await window.__VP_SB.sb.from('tarefas').insert({
-      t: titulo, module: modulo, prio,
-      time: 'Hoje',
-      date: new Date().toISOString().slice(0, 10),
+      title: titulo.trim(),
+      module: modulo,
+      priority: ({ 'Alta': 'alta', 'Média': 'media', 'Baixa': 'baixa' }[prio] || 'media'),
+      due_time: hora,
+      role,
+      done: false,
     });
     setSaving(false);
     if (error) return window.toast('Erro: ' + error.message, 'error');
     window.toast('Tarefa adicionada!', 'success');
+    onSaved?.();
     onClose();
   };
 
@@ -140,6 +159,10 @@ function ModalNovaTask({ onClose }) {
             </select>
           </div>
         </div>
+        <div className="stack" style={{ gap:4 }}>
+          <label className="up-eyebrow muted">Horário</label>
+          <input className="input" type="time" value={hora} onChange={e => setHora(e.target.value)}/>
+        </div>
       </div>
     </Modal>
   );
@@ -152,14 +175,33 @@ function Dashboard({ role, setRoute }) {
   const [period, setPeriod] = React.useState('Hoje');
   const [showTask, setShowTask] = React.useState(false);
   const periods = ['Hoje','7 dias','30 dias','90 dias'];
+  const reloadDashboard = React.useCallback(() => {
+    if (!window.__VP_SB) { setLoading(false); return Promise.resolve(); }
+    setLoading(true);
+    return window.__VP_SB.loadDashboardData(role)
+      .then(data => { setSbData(data); setLoading(false); })
+      .catch((err) => { setLoading(false); window.toast?.('Erro ao atualizar dashboard: ' + err.message, 'error'); });
+  }, [role]);
 
   React.useEffect(() => {
-    if (!window.__VP_SB) { setLoading(false); return; }
-    setLoading(true);
-    window.__VP_SB.loadDashboardData(role)
-      .then(data => { setSbData(data); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, [role]);
+    reloadDashboard();
+  }, [reloadDashboard]);
+
+  const moveProject = async (project, phase) => {
+    if (!project || !phase || project.current_phase === phase) return;
+    const before = sbData;
+    setSbData(prev => ({
+      ...prev,
+      ganttProjetos: (prev?.ganttProjetos || []).map(p => p.id === project.id ? { ...p, current_phase: phase } : p),
+    }));
+    const { error } = await window.__VP_SB.sb.from('projetos').update({ current_phase: phase }).eq('id', project.id);
+    if (error) {
+      setSbData(before);
+      return window.toast('Erro ao mover projeto: ' + error.message, 'error');
+    }
+    window.toast(`${project.name} movido para ${phase}`, 'success');
+    reloadDashboard();
+  };
 
   const kpis        = sbData?.kpis?.[role] || [];
   const tasks       = sbData?.tarefas || [];
@@ -220,7 +262,7 @@ function Dashboard({ role, setRoute }) {
           </>}>
           {projectView === 'gantt'  && <GanttChart projetos={projetos} onClick={() => setRoute("propostas")} today={sbData?.ganttToday ?? 60}/>}
           {projectView === 'lista'  && <ProjectList projetos={projetos}/>}
-          {projectView === 'kanban' && <ProjectKanban projetos={projetos}/>}
+          {projectView === 'kanban' && <ProjectKanban projetos={projetos} onMove={moveProject}/>}
         </Card>
 
         <Card title="Tarefas de Hoje" sub={tasks.length + " pendentes"} action={<Button variant="ghost" size="sm" icon="plus" onClick={() => setShowTask(true)}/>}>
@@ -257,7 +299,7 @@ function Dashboard({ role, setRoute }) {
         </div>
       </Card>
 
-      {showTask && <ModalNovaTask onClose={() => setShowTask(false)}/>}
+      {showTask && <ModalNovaTask role={role} onClose={() => setShowTask(false)} onSaved={reloadDashboard}/>}
 
       <div className="grid-3">
         <Card title="Pipeline Comercial" sub="acumulado">

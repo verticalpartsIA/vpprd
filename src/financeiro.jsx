@@ -90,7 +90,7 @@ function FinanceiroPage() {
           <p className="page-head__sub">Pagamentos disparados por marcos contratuais. Cálculo de prazo reverso a partir da data de instalação.</p>
         </div>
         <div className="page-head__r">
-          <Button variant="outline" icon="download" onClick={() => window.csvDownload(gatilhos.map(g => ({ projeto:g.projeto, building:g.building, trigger:g.trigger, valor:g.value, vencimento:g.due_date, dias_restantes:g.days_left, status:g.status })), 'gatilhos-fluxo.csv')}>Exportar fluxo</Button>
+          <Button variant="outline" icon="download" onClick={() => window.csvDownload(gatilhos.map(g => ({ projeto:g.projeto||g.project_id, building:g.building, trigger:g.trigger||g.trigger_name, valor:g.value, vencimento:g.due_date, dias_restantes:g.days_left, status:g.status })), 'gatilhos-fluxo.csv')}>Exportar fluxo</Button>
           <Button variant="primary" icon="plus" onClick={() => setShowGatilho(true)}>Novo gatilho</Button>
         </div>
       </div>
@@ -142,7 +142,7 @@ function GatilhoCard({ g }) {
 
       <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr 200px", gap: 14, padding: "16px 20px", alignItems: "center", borderBottom: "1px solid var(--border)" }}>
         <div>
-          <div className="up-eyebrow muted">{g.projeto} · {g.trigger}</div>
+          <div className="up-eyebrow muted">{(g.projeto || g.project_id || "")} · {(g.trigger || g.trigger_name || "")}</div>
           <div style={{ fontSize: 16, fontFamily: "var(--font-display)", fontWeight: 800, textTransform: "uppercase", marginTop: 4 }}>{g.building}</div>
         </div>
         <div>
@@ -159,7 +159,7 @@ function GatilhoCard({ g }) {
            : g.status === "atencao" ? <Badge variant="warning" dot>Atenção</Badge>
            : <Badge variant="danger" dot>Pendente</Badge>}
           <Button variant={daysLeft <= 2 ? "primary" : "outline"} size="sm" icon="check"
-            onClick={() => window.toast(`Gatilho "${g.trigger}" confirmado`, "success")}>Confirmar</Button>
+            onClick={() => window.toast(`Gatilho "${g.trigger || g.trigger_name || ''}" confirmado`, "success")}>Confirmar</Button>
         </div>
       </div>
 
@@ -219,7 +219,7 @@ function ComissoesPage() {
           <p className="page-head__sub">Comissionamento sobre faturamento líquido · liberação após confirmação de entrada</p>
         </div>
         <div className="page-head__r">
-          <Button variant="outline" icon="download" onClick={() => window.csvDownload(comissoes.map(c => ({ vendedor:c.vendedor, cargo:c.role, projetos:c.projetos, faturado:c.faturado, pct_comissao:c.pct, comissao:c.comissao, status:c.status })), 'folha-comissoes-q2.csv')}>Folha de pagto</Button>
+          <Button variant="outline" icon="download" onClick={() => window.csvDownload(comissoes.map(c => ({ vendedor:c.vendedor, cargo:c.role, projetos:c.projetos??c.projetos_count, faturado:c.faturado, pct_comissao:c.pct, comissao:c.comissao, status:c.status })), 'folha-comissoes-q2.csv')}>Folha de pagto</Button>
           <Button variant="primary" icon="check" onClick={() => window.toast("Todas as comissões aprovadas — Q2/26", "success")}>Aprovar todas</Button>
         </div>
       </div>
@@ -261,7 +261,7 @@ function ComissoesPage() {
                       </div>
                     </div>
                   </td>
-                  <td><span className="cell-num">{c.projetos}</span></td>
+                  <td><span className="cell-num">{c.projetos ?? c.projetos_count}</span></td>
                   <td className="cell-money">{fmtBRL(c.faturado)}</td>
                   <td><span className="cell-num">{c.pct}%</span></td>
                   <td className="cell-money" style={{ fontSize: 14, fontWeight: 800 }}>{fmtBRL(c.comissao)}</td>

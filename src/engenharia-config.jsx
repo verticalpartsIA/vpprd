@@ -100,6 +100,70 @@ function EqComputed({ tipo, c, p }) {
   );
 }
 
+/* ---------- Desenho esquemático 2D (vista lateral, paramétrico) ---------- */
+function EqSchematic({ tipo, p, c }) {
+  const W = 460, H = 180, pad = 26, ground = H - 28;
+  const lbl = { fontSize: 10, fontFamily: "var(--font-mono, monospace)", fill: "#666" };
+
+  if (tipo === "escada_rolante") {
+    const ang = Number(p.angulo) || 30;
+    const riseM = (Number(p.rise) || 0) / 1000;
+    const rad = ang * Math.PI / 180;
+    const pxPerM = 22;
+    let risePx = Math.max(riseM * pxPerM, 8);
+    let runPx = risePx / Math.tan(rad);
+    let land = 40;
+    const maxW = W - 2 * pad - 40, maxH = ground - pad - 14;
+    let s = 1;
+    const totalW = land + runPx + land;
+    if (totalW > maxW) s = Math.min(s, maxW / totalW);
+    if (risePx * s > maxH) s = Math.min(s, maxH / risePx);
+    risePx *= s; runPx *= s; land *= s;
+    const x0 = pad, x1 = x0 + land, x2 = x1 + runPx, x3 = x2 + land;
+    const y0 = ground, y2 = ground - risePx, hr = 20;
+    const n = Math.min(Math.max(Number(c.degraus) || 0, 0), 16);
+    const steps = [];
+    for (let i = 0; i < n; i++) {
+      const fx = x1 + runPx * i / n, fy = y0 - risePx * i / n;
+      const ny = y0 - risePx * (i + 1) / n, nx = x1 + runPx * (i + 1) / n;
+      steps.push(`M ${fx.toFixed(1)} ${fy.toFixed(1)} L ${fx.toFixed(1)} ${ny.toFixed(1)} L ${nx.toFixed(1)} ${ny.toFixed(1)}`);
+    }
+    return (
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" height="170" preserveAspectRatio="xMidYMid meet" style={{ display: "block" }}>
+        <line x1={pad - 6} y1={ground} x2={W - pad} y2={ground} stroke="#e2e2e2" strokeWidth="1.5"/>
+        <polyline points={`${x0},${y0} ${x1},${y0} ${x2},${y2} ${x3},${y2}`} fill="none" stroke="#111" strokeWidth="7" strokeLinejoin="round" strokeLinecap="round"/>
+        <polyline points={`${x0},${y0 - hr} ${x1},${y0 - hr} ${x2},${y2 - hr} ${x3},${y2 - hr}`} fill="none" stroke="#f5c400" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round"/>
+        {steps.map((d, i) => <path key={i} d={d} fill="none" stroke="#fff" strokeWidth="1.2" opacity="0.9"/>)}
+        <line x1={x3 + 14} y1={y0} x2={x3 + 14} y2={y2} stroke="#999" strokeWidth="1" strokeDasharray="3 2"/>
+        <text x={x3 + 18} y={(y0 + y2) / 2 + 3} style={lbl}>{Number(p.rise) || 0} mm</text>
+        <text x={x1 + 8} y={y0 - 7} style={lbl}>{ang}°</text>
+        <text x={pad - 6} y={H - 8} style={lbl}>degrau {p.stepWidth} mm · {p.velocidade} m/s · {(c.capacidade || 0).toLocaleString("pt-BR")} pess./h</text>
+      </svg>
+    );
+  }
+
+  // esteira rolante (vista lateral)
+  const incl = Number(p.inclinacao) || 0;
+  const compM = (Number(p.comprimento) || 0) / 1000;
+  const rad = incl * Math.PI / 180;
+  const maxW = W - 2 * pad - 20;
+  let len = Math.min(Math.max(compM * 8, 40), maxW);
+  const x0 = pad, yMid = ground - 22;
+  const dx = len * Math.cos(rad), dy = len * Math.sin(rad);
+  const x1 = x0 + dx, y1 = yMid - dy, th = 14;
+  const nt = 12, ticks = [];
+  for (let i = 1; i < nt; i++) ticks.push([x0 + dx * i / nt, yMid - dy * i / nt]);
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" height="170" preserveAspectRatio="xMidYMid meet" style={{ display: "block" }}>
+      <line x1={pad - 6} y1={ground} x2={W - pad} y2={ground} stroke="#e2e2e2" strokeWidth="1.5"/>
+      <line x1={x0} y1={yMid} x2={x1} y2={y1} stroke="#111" strokeWidth={th} strokeLinecap="round"/>
+      <line x1={x0} y1={yMid - 16} x2={x1} y2={y1 - 16} stroke="#f5c400" strokeWidth="3" strokeLinecap="round"/>
+      {ticks.map(([tx, ty], i) => <line key={i} x1={tx} y1={ty - th / 2 + 1} x2={tx} y2={ty + th / 2 - 1} stroke="#fff" strokeWidth="1" opacity="0.8"/>)}
+      <text x={pad - 6} y={H - 8} style={lbl}>incl {incl}° · {Number(p.comprimento) || 0} mm · palheta {p.palheta} mm · {p.velocidade} m/s</text>
+    </svg>
+  );
+}
+
 /* ---------- MODAL: Configurador ---------- */
 function ConfiguradorModal({ spec, onClose, onSaved }) {
   const editing = !!spec;
@@ -175,7 +239,7 @@ function ConfiguradorModal({ spec, onClose, onSaved }) {
   );
 
   return (
-    <Modal title={editing ? `Editar equipamento · ${idRef.current}` : "Configurar equipamento"} onClose={onClose} width={760}
+    <Modal title={editing ? `Projeto de equipamento · ${idRef.current}` : "Novo projeto de equipamento"} onClose={onClose} width={760}
       footer={<>
         <Button variant="ghost" onClick={onClose}>Cancelar</Button>
         <Button variant="outline" onClick={() => save(false)} disabled={saving || uploading}>Salvar rascunho</Button>
@@ -195,6 +259,11 @@ function ConfiguradorModal({ spec, onClose, onSaved }) {
             {EQ_TIPOS.map(t => <button key={t.key} className={tipo === t.key ? "is-active" : ""} onClick={() => setTipoAndDefaults(t.key)}>{t.label}</button>)}
             <button disabled title="Em breve" style={{ opacity: .5, cursor: "not-allowed" }}>Elevador (em breve)</button>
           </div>
+        </div>
+
+        <div style={{ border: "1px solid var(--border)", background: "var(--vp-gray-50)", padding: 8 }}>
+          <div className="up-eyebrow muted" style={{ fontSize: 9, marginBottom: 4 }}>Esquema (vista lateral) — atualiza com a configuração</div>
+          <EqSchematic tipo={tipo} p={params} c={computed}/>
         </div>
 
         <div className="grid-2" style={{ gap: 20, gridTemplateColumns: "1fr 280px" }}>
@@ -258,12 +327,12 @@ function ConfiguradorPage({ setRoute }) {
     <div className="page fade-in">
       <div className="page-head">
         <div className="page-head__l">
-          <div className="page-head__eyebrow"><span className="vp-rule"/>Engenharia · Configurador</div>
-          <h1 className="page-head__title">Configurador de Equipamentos</h1>
-          <p className="page-head__sub">Especificação técnica de escadas e esteiras rolantes — com desenhos e imagens — para orientar a compra do equipamento correto.</p>
+          <div className="page-head__eyebrow"><span className="vp-rule"/>Engenharia · Projeto de Equipamento</div>
+          <h1 className="page-head__title">Projeto de Equipamento</h1>
+          <p className="page-head__sub">Especificação técnica de escadas e esteiras rolantes — com desenho e anexos — para orientar a compra do equipamento correto.</p>
         </div>
         <div className="page-head__r">
-          <Button variant="primary" icon="plus" onClick={() => { setEdit(null); setShowModal(true); }}>Configurar equipamento</Button>
+          <Button variant="primary" icon="plus" onClick={() => { setEdit(null); setShowModal(true); }}>Novo projeto de equipamento</Button>
         </div>
       </div>
 
@@ -285,7 +354,7 @@ function ConfiguradorPage({ setRoute }) {
           <thead><tr><th>Referência</th><th>Tipo</th><th>Configuração</th><th>Capacidade</th><th>Anexos</th><th>Status</th><th></th></tr></thead>
           <tbody>
             {rows.length === 0 && (
-              <tr><td colSpan={99}><div className="empty"><h4>Nenhum equipamento configurado</h4><p>Clique em "Configurar equipamento" para especificar uma escada ou esteira rolante.</p></div></td></tr>
+              <tr><td colSpan={99}><div className="empty"><h4>Nenhum equipamento configurado</h4><p>Clique em "Novo projeto de equipamento" para especificar uma escada ou esteira rolante.</p></div></td></tr>
             )}
             {rows.map(s => (
               <tr key={s.id} style={{ cursor: "pointer" }} onClick={() => { setEdit(s); setShowModal(true); }}>

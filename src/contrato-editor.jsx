@@ -13,6 +13,24 @@ function dataBR(iso) {
 }
 const UF_LIST = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"];
 
+/* parse "230.000,00" → 230000 ; format 92000 → "92.000,00" */
+function parseBRL(s) {
+  if (s == null || s === '') return 0;
+  const n = parseFloat(String(s).replace(/\./g, '').replace(',', '.'));
+  return isNaN(n) ? 0 : n;
+}
+function fmtBRLnum(n) {
+  if (!isFinite(n)) return '';
+  return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+/* valor da parcela = % × valor total */
+function calcParcela(pct, total) {
+  const p = parseFloat(String(pct).replace(',', '.'));
+  const t = parseBRL(total);
+  if (!p || !t) return '';
+  return fmtBRLnum(t * p / 100);
+}
+
 function makeDefaultDados(contrato) {
   const d = contrato?.dados || {};
   const hoje = new Date().toISOString().slice(0,10);
@@ -112,6 +130,7 @@ function ContratoEditorPage({ contrato, setRoute, onSaved }) {
   const [saving, setSaving] = React.useState(false);
   const [savedAt, setSavedAt] = React.useState(Date.now());
   const [tick, setTick] = React.useState(0);
+  const [propostas, setPropostas] = React.useState([]);
   const formRef = React.useRef(null);
 
   // Tick para "salvado há Xs"
@@ -119,6 +138,41 @@ function ContratoEditorPage({ contrato, setRoute, onSaved }) {
     const t = setInterval(() => setTick(p => p+1), 5000);
     return () => clearInterval(t);
   }, []);
+
+  // Carrega lista de propostas (cotações) para o autocompletar
+  React.useEffect(() => {
+    window.__VP_SB.sb.from('cotacoes').select('id,building,total,lead_id').order('date', { ascending: false })
+      .then(({ data }) => setPropostas(data || []));
+  }, []);
+
+  // Herda dados da proposta (cotação + lead) ao preencher "Proposta de Referência"
+  const herdarDaProposta = async (ref) => {
+    const r = (ref || '').trim();
+    if (!r) return;
+    const { data: cot } = await window.__VP_SB.sb.from('cotacoes').select('*').eq('id', r).maybeSingle();
+    if (!cot) return; // referência livre — sem correspondência, não faz nada
+    let lead = null;
+    if (cot.lead_id) {
+      const lr = await window.__VP_SB.sb.from('leads').select('*').eq('id', cot.lead_id).maybeSingle();
+      lead = lr.data;
+    }
+    setDados(p => {
+      const total = cot.total ? fmtBRLnum(cot.total) : p.valorTotal;
+      const next = {
+        ...p,
+        razaoSocial: p.razaoSocial || cot.building || '',
+        responsavel: p.responsavel || (lead?.contact || ''),
+        modeloEquip: p.modeloEquip || (lead?.equip || ''),
+        valorTotal:  p.valorTotal  || total || '',
+      };
+      // recalcula parcelas com o novo total herdado
+      if (!p.valorTotal && total) {
+        next.parcelas = p.parcelas.map(par => ({ ...par, valor: calcParcela(par.pct, total) }));
+      }
+      return next;
+    });
+    window.toast(`Dados herdados da proposta ${r}${lead ? ' (lead '+cot.lead_id+')' : ''}.`, 'success');
+  };
 
   // Active section follows scroll
   React.useEffect(() => {
@@ -138,8 +192,19 @@ function ContratoEditorPage({ contrato, setRoute, onSaved }) {
   }, []);
 
   const set = (k, v) => setDados(p => ({ ...p, [k]: v }));
+
+  // valorTotal muda → recalcula o valor de todas as parcelas (% × total)
+  const setValorTotal = (v) => setDados(p => ({
+    ...p,
+    valorTotal: v,
+    parcelas: p.parcelas.map(par => ({ ...par, valor: calcParcela(par.pct, v) })),
+  }));
+
+  // parcela muda → se for o %, recalcula seu valor automaticamente
   const setParcela = (i, k, v) => setDados(p => {
-    const pars = [...p.parcelas]; pars[i] = { ...pars[i], [k]: v };
+    const pars = [...p.parcelas];
+    pars[i] = { ...pars[i], [k]: v };
+    if (k === 'pct') pars[i].valor = calcParcela(v, p.valorTotal);
     return { ...p, parcelas: pars };
   });
   const addParcela = () => setDados(p => ({
@@ -277,7 +342,7 @@ function ContratoEditorPage({ contrato, setRoute, onSaved }) {
               fill={sectionFill('dados', dados)}
               collapsed={!!collapsed['dados']}
               onToggle={() => setCollapsed(c => ({ ...c, dados: !c.dados }))}>
-              <SF_Dados dados={dados} set={set}/>
+              <SF_Dados dados={dados} set={set} propostas={propostas} onInherit={herdarDaProposta}/>
             </CSecao>
 
             <CSecao id="comprador" num="02" title="Comprador" sub="IDENTIFICAÇÃO"
@@ -298,7 +363,7 @@ function ContratoEditorPage({ contrato, setRoute, onSaved }) {
               fill={sectionFill('preco', dados)}
               collapsed={!!collapsed['preco']}
               onToggle={() => setCollapsed(c => ({ ...c, preco: !c.preco }))}>
-              <SF_Preco dados={dados} set={set} setParcela={setParcela} addParcela={addParcela} removeParcela={removeParcela}/>
+              <SF_Preco dados={dados} set={set} setValorTotal={setValorTotal} setParcela={setParcela} addParcela={addParcela} removeParcela={removeParcela}/>
             </CSecao>
 
             <CSecao id="assinatura" num="05" title="Assinatura das Partes" sub="FORMALIZAÇÃO"
@@ -355,13 +420,32 @@ function CSecao({ id, num, title, sub, fill, collapsed, onToggle, children }) {
 }
 
 /* ---------- Sub-formulários ---------- */
-function SF_Dados({ dados, set }) {
+function SF_Dados({ dados, set, propostas = [], onInherit }) {
   return (
     <div className="stack" style={{ gap: 14 }}>
       <Field label="Nº do Contrato *" value={dados.numero} onChange={v => set('numero', v)} ph="CTR-001/2026"/>
       <div className="grid-2" style={{ gap: 12 }}>
         <Field label="Data de emissão" type="date" value={dados.dataEmissao} onChange={v => set('dataEmissao', v)}/>
-        <Field label="Proposta de referência" value={dados.propostaRef} onChange={v => set('propostaRef', v)} ph="PR-2026-001"/>
+        <div className="field">
+          <label>Proposta de referência <span style={{ color: 'var(--fg3)', fontWeight: 400, textTransform: 'none' }}>· herda dados</span></label>
+          <input className="input" list="dt-propostas" value={dados.propostaRef}
+            placeholder="COT-001"
+            onChange={e => {
+              const v = e.target.value;
+              set('propostaRef', v);
+              // seleção via datalist (casa exatamente com uma proposta) → herda na hora
+              if (onInherit && propostas.some(p => p.id === v)) onInherit(v);
+            }}
+            onBlur={e => onInherit && onInherit(e.target.value)}/>
+          <datalist id="dt-propostas">
+            {propostas.map(p => (
+              <option key={p.id} value={p.id}>{p.building}{p.total ? ' · R$ ' + fmtBRLnum(p.total) : ''}</option>
+            ))}
+          </datalist>
+          <span style={{ fontSize: 10, color: 'var(--fg3)', marginTop: 3, display: 'block' }}>
+            Selecione/insira a proposta e saia do campo — cliente, valor, responsável e equipamento serão preenchidos.
+          </span>
+        </div>
       </div>
       <Field label="Advogado responsável" value={dados.advogado} onChange={v => set('advogado', v)} ph="Nome do advogado"/>
     </div>
@@ -427,30 +511,49 @@ function SF_Objeto({ dados, set }) {
   );
 }
 
-function SF_Preco({ dados, set, setParcela, addParcela, removeParcela }) {
+function SF_Preco({ dados, set, setValorTotal, setParcela, addParcela, removeParcela }) {
+  const total   = parseBRL(dados.valorTotal);
+  const somaPct = dados.parcelas.reduce((s, p) => s + (parseFloat(String(p.pct).replace(',', '.')) || 0), 0);
+  const somaVal = dados.parcelas.reduce((s, p) => s + parseBRL(p.valor), 0);
+  const pctOk   = Math.abs(somaPct - 100) < 0.01;
   return (
     <div className="stack" style={{ gap: 14 }}>
       <div className="grid-2" style={{ gap: 12 }}>
-        <Field label="Valor Total (R$) *" value={dados.valorTotal} onChange={v => set('valorTotal', v)} ph="1.200.000,00"/>
+        <Field label="Valor Total (R$) *" value={dados.valorTotal} onChange={setValorTotal} ph="1.200.000,00"/>
         <Field label="Valor por extenso *" value={dados.valorExtenso} onChange={v => set('valorExtenso', v)} ph="um milhão, duzentos mil reais"/>
       </div>
       <div>
-        <div className="up-eyebrow muted" style={{ fontSize: 11, marginBottom: 8 }}>Cronograma de Pagamento</div>
+        <div className="up-eyebrow muted" style={{ fontSize: 11, marginBottom: 4 }}>Cronograma de Pagamento</div>
+        <div style={{ fontSize: 10, color: 'var(--fg3)', marginBottom: 8 }}>Informe a <b>%</b> de cada parcela — o <b>valor</b> é calculado automaticamente (% × valor total).</div>
         <div style={{ border: '1px solid var(--border)', borderRadius: 2 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 64px 140px 32px', gap: 0, background: 'var(--vp-gray-50)', padding: '6px 10px', fontSize: 10, fontWeight: 800, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--fg3)', borderBottom: '1px solid var(--border)' }}>
-            <span>Descrição</span><span>%</span><span>Valor</span><span/>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 64px 150px 32px', gap: 0, background: 'var(--vp-gray-50)', padding: '6px 10px', fontSize: 10, fontWeight: 800, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--fg3)', borderBottom: '1px solid var(--border)' }}>
+            <span>Descrição</span><span style={{ textAlign: 'center' }}>%</span><span style={{ textAlign: 'right' }}>Valor (auto)</span><span/>
           </div>
           {dados.parcelas.map((p, i) => (
-            <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 64px 140px 32px', gap: 0, borderBottom: i < dados.parcelas.length - 1 ? '1px solid var(--border)' : 'none', alignItems: 'center' }}>
+            <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 64px 150px 32px', gap: 0, borderBottom: '1px solid var(--border)', alignItems: 'center' }}>
               <input className="input" style={{ border: 'none', borderRadius: 0, fontSize: 12 }} value={p.desc} onChange={e => setParcela(i,'desc',e.target.value)} placeholder="Descrição"/>
               <input className="input" style={{ border: 'none', borderLeft: '1px solid var(--border)', borderRadius: 0, fontSize: 12, textAlign: 'center' }} value={p.pct} onChange={e => setParcela(i,'pct',e.target.value)} placeholder="%"/>
-              <input className="input" style={{ border: 'none', borderLeft: '1px solid var(--border)', borderRadius: 0, fontSize: 12 }} value={p.valor} onChange={e => setParcela(i,'valor',e.target.value)} placeholder="R$ 0,00"/>
+              <div style={{ borderLeft: '1px solid var(--border)', padding: '0 10px', fontSize: 12, fontFamily: 'var(--font-mono)', fontWeight: 700, textAlign: 'right', color: p.valor ? 'var(--fg1)' : 'var(--fg3)', background: 'var(--vp-gray-50)' }}>
+                {p.valor ? 'R$ ' + p.valor : (total ? '—' : 'defina o total')}
+              </div>
               {dados.parcelas.length > 1
-                ? <button onClick={() => removeParcela(i)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--fg3)', fontSize: 16, borderLeft: '1px solid var(--border)', height: '100%' }}>×</button>
+                ? <button onClick={() => removeParcela(i)} title="Remover parcela" style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--fg3)', fontSize: 16, borderLeft: '1px solid var(--border)', height: '100%' }}>×</button>
                 : <span/>}
             </div>
           ))}
+          {/* linha de soma */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 64px 150px 32px', gap: 0, padding: '0', alignItems: 'center', background: pctOk ? 'var(--vp-success-bg, #eef7ee)' : '#fff4e5' }}>
+            <span style={{ padding: '7px 10px', fontSize: 11, fontWeight: 700 }}>Total</span>
+            <span style={{ padding: '7px 0', fontSize: 12, fontWeight: 800, textAlign: 'center', fontFamily: 'var(--font-mono)', color: pctOk ? 'var(--vp-success)' : 'var(--vp-danger)' }}>{somaPct ? somaPct.toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + '%' : '0%'}</span>
+            <span style={{ padding: '7px 10px', fontSize: 12, fontWeight: 800, textAlign: 'right', fontFamily: 'var(--font-mono)' }}>R$ {fmtBRLnum(somaVal)}</span>
+            <span/>
+          </div>
         </div>
+        {!pctOk && somaPct > 0 && (
+          <div style={{ fontSize: 11, color: 'var(--vp-danger)', marginTop: 6 }}>
+            ⚠ A soma das porcentagens é {somaPct.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}% — ajuste para totalizar 100%.
+          </div>
+        )}
         <Button variant="ghost" size="sm" icon="plus" onClick={addParcela} style={{ marginTop: 8 }}>Adicionar parcela</Button>
       </div>
     </div>

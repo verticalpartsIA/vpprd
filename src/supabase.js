@@ -67,7 +67,7 @@
     const [
       lR, cotR, projR, alertR,
       tarR, embR, ctR, estR,
-      comR, gatR, ncmR
+      comR, gatR, fichasR, catalogoR
     ] = await Promise.all([
       sb.from('leads').select('*').order('date', { ascending: false }),
       sb.from('cotacoes').select('*').order('date', { ascending: false }),
@@ -75,11 +75,12 @@
       sb.from('alertas').select('*').eq('resolved', false).order('created_at', { ascending: false }),
       sb.from('tarefas').select('*').eq('role', role).eq('done', false).order('id'),
       sb.from('embarques').select('*').order('eta'),
-      sb.from('contratos').select('*').order('issued_date', { ascending: false }),
+      sb.from('contratos_venda_equipamentos').select('*').order('issued_date', { ascending: false }),
       sb.from('estoque').select('*').order('sku'),
       sb.from('comissoes').select('*').order('id'),
       sb.from('gatilhos').select('*').order('due_date'),
-      sb.from('ncm_solicitacoes').select('*').order('created_at', { ascending: false }),
+      sb.from('fichas_tecnicas').select('*').order('criado_em', { ascending: false }),
+      sb.from('catalogo_produtos').select('*').order('created_at', { ascending: false }),
     ]);
 
     const leads     = lR.data    || [];
@@ -92,7 +93,9 @@
     const estoque   = estR.data  || [];
     const comissoes = comR.data  || [];
     const gatilhos  = gatR.data  || [];
-    const ncm       = ncmR.data  || [];
+    const fichas    = fichasR.data || [];
+    const catalogo  = catalogoR.data || [];
+    const ncm       = [];  // legado removido — vazio pra compat de loops abaixo
 
     // ---- tarefas no formato esperado pelo Dashboard ----
     const tarefasFmt = tarefas.map(t => ({
@@ -115,8 +118,8 @@
     const comPend      = comissoes.filter(c => c.status === 'Aguardando').reduce((s, c) => s + (c.comissao || 0), 0);
     const gatProx7     = gatilhos.filter(g => (g.days_left || 0) <= 7);
     const aReceber     = contratos.filter(c => c.status !== 'Assinado').reduce((s, c) => s + (c.value || 0), 0);
-    const ncmPend      = ncm.filter(n => ['NAO_INICIADO', 'EM_PREENCHIMENTO'].includes(n.status)).length;
-    const ncmAnalise   = ncm.filter(n => n.status === 'AGUARD_JURIDICO').length;
+    const fichasDoMes  = fichas.filter(f => (f.criado_em || '').startsWith(mesAtual)).length;
+    const catProdAtivos = catalogo.filter(p => p.situacao === 'ativado').length;
 
     // ---- KPIs por perfil ----
     const kpis = {
@@ -127,9 +130,9 @@
         { label: 'Conversão Lead→Proposta', value: String(convPct),             unit: '%',delta: '',                        deltaDir: convPct >= 25 ? 'up' : 'down', sub: 'meta 25%' },
       ],
       engenharia: [
-        { label: 'Projetos abertos',  value: String(projetos.length), unit: '', delta: '', deltaDir: 'up', sub: 'ativos' },
-        { label: 'NCM pendentes',     value: String(ncmPend),         unit: '', delta: '', deltaDir: 'up', sub: 'aguardando análise' },
-        { label: 'NCM em análise',    value: String(ncmAnalise),      unit: '', delta: '', deltaDir: 'up', sub: 'em andamento' },
+        { label: 'Projetos abertos',  value: String(projetos.length),        unit: '', delta: '', deltaDir: 'up', sub: 'ativos' },
+        { label: 'Fichas técnicas',   value: String(fichas.length),          unit: '', delta: fichasDoMes > 0 ? `+${fichasDoMes}` : '0', deltaDir: 'up', sub: 'no mês' },
+        { label: 'Catálogo (ativos)', value: String(catProdAtivos),          unit: '', delta: '', deltaDir: 'up', sub: 'produtos no catálogo' },
         { label: 'Alertas engenharia',value: String(alertas.filter(a => a.module === 'Engenharia').length), unit: '', delta: '', deltaDir: 'up', sub: 'pendentes' },
       ],
       financeiro: [
@@ -199,7 +202,7 @@
 
     return {
       leads, cotacoes, projetos, alertas, tarefas: tarefasFmt,
-      embarques, contratos, estoque, comissoes, gatilhos, ncm,
+      embarques, contratos, estoque, comissoes, gatilhos, fichas, catalogo, ncm,
       kpis, pipelineStages, originBars, estoqueCritico,
       alertasCriticos: alertasCrit.length,
       ganttToday, ganttProjetos,

@@ -439,7 +439,7 @@ function NcmCatalogoPage({ setRoute }) {
         </div>
         <div className="page-head__r">
           {tab === "produtos"
-            ? <Button variant="primary" icon="plus" onClick={() => setShowProd(true)}>Novo produto</Button>
+            ? <span style={{ fontSize: 11, color: 'var(--fg3)', textTransform: 'uppercase', letterSpacing: '.08em', fontWeight: 600 }}>📋 Produtos vêm da Ficha Técnica</span>
             : <Button variant="primary" icon="plus" onClick={() => setShowOp(true)}>Novo operador</Button>}
         </div>
       </div>

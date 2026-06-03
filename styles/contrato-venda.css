@@ -1,0 +1,237 @@
+/* ============================================================
+   contrato-venda.css
+   Estilos específicos do Contrato Venda de Equipamentos.
+   Reaproveita os blocos .ci-* (compartilhados com o Instalador).
+   Prefixo cv- só para o conteúdo único: form fields, equipamento
+   selector, tabela de pagamentos, render do documento.
+   ============================================================ */
+
+/* ---------- Form fields (paralelos aos ci-*) ---------- */
+.cv-field { display: flex; flex-direction: column; gap: 4px; }
+.cv-field--full   { grid-column: 1 / -1; }
+.cv-field--wide   { grid-column: span 2; }
+.cv-field--narrow { grid-column: span 1; max-width: 200px; }
+
+.cv-field label {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: #4a4a4a;
+}
+.cv-req { color: #dc2626; margin-left: 2px; }
+
+.cv-input-wrap { position: relative; display: flex; align-items: center; }
+.cv-input-wrap--suffix .cv-input { padding-right: 38px; }
+.cv-input-wrap--prefix { padding: 0 11px; gap: 6px; border: 1px solid #e5e7eb; border-radius: 3px; background: #fff; }
+.cv-input-wrap--prefix:focus-within { border-color: #FBB039; box-shadow: 0 0 0 3px rgba(251,176,57,.18); }
+.cv-input-wrap--prefix .cv-input { border: none; padding: 9px 0; flex: 1; }
+.cv-input-prefix { font-size: 11px; font-weight: 700; color: #8a8a8a; flex-shrink: 0; }
+.cv-input-suffix { position: absolute; right: 11px; font-size: 11px; font-weight: 700; color: #8a8a8a; pointer-events: none; }
+
+.cv-input {
+  font-family: inherit; font-size: 13px;
+  padding: 9px 11px;
+  border: 1px solid #e5e7eb; background: #fff;
+  border-radius: 3px; transition: border .12s; width: 100%;
+  box-sizing: border-box;
+}
+.cv-input:focus { outline: none; border-color: #FBB039; box-shadow: 0 0 0 3px rgba(251,176,57,.18); }
+.cv-input--error { border-color: #dc2626; background: #fef2f2; }
+.cv-mono { font-family: 'Courier New', monospace; letter-spacing: .03em; }
+.cv-textarea { resize: vertical; min-height: 60px; }
+.cv-select { appearance: none; padding-right: 28px; cursor: pointer; background-image: linear-gradient(45deg, transparent 50%, #8a8a8a 50%), linear-gradient(135deg, #8a8a8a 50%, transparent 50%); background-position: calc(100% - 14px) 50%, calc(100% - 9px) 50%; background-size: 5px 5px; background-repeat: no-repeat; }
+
+.cv-field-hint { font-size: 11px; color: #8a8a8a; }
+.cv-field-err { font-size: 11px; color: #dc2626; font-weight: 600; }
+
+.cv-contratante-note {
+  padding: 12px 14px; background: #f7f7f7; border: 1px solid #e5e7eb;
+  border-radius: 4px; margin-bottom: 16px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.cv-contratante-note span:first-child { font-size: 9.5px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #8a8a8a; }
+.cv-contratante-note small { font-size: 11px; color: #8a8a8a; }
+.cv-contratante-note strong { font-size: 12.5px; }
+
+.cv-mini-label { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #4a4a4a; display: block; margin: 8px 0 6px; }
+
+/* ---------- Equipamento selector (3 cards) ---------- */
+.cv-eq-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
+.cv-eq-card {
+  padding: 18px 14px; background: #fff; border: 1px solid #e5e7eb;
+  border-radius: 4px; cursor: pointer; text-align: center;
+  font-size: 13px; font-weight: 700; transition: border .12s;
+}
+.cv-eq-card:hover { border-color: #cbd5e1; }
+.cv-eq-card.on { border-color: #FBB039; background: #fffbeb; }
+.cv-eq-card-l { font-weight: 700; }
+
+/* ---------- Toggle ---------- */
+.cv-toggle {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; padding: 10px 12px;
+  background: #fff; border: 1px solid #e5e7eb; border-radius: 3px;
+  cursor: pointer; text-align: left;
+}
+.cv-toggle:hover { background: #fafafa; }
+.cv-toggle.on { background: #fffbeb; border-color: #FBB039; }
+.cv-toggle-sw {
+  width: 36px; height: 20px; background: #e5e7eb; border-radius: 10px;
+  position: relative; flex-shrink: 0; transition: background .15s;
+}
+.cv-toggle.on .cv-toggle-sw { background: #E89A1F; }
+.cv-toggle-dot {
+  width: 14px; height: 14px; background: #fff; border-radius: 50%;
+  position: absolute; top: 3px; left: 3px; transition: left .15s;
+  box-shadow: 0 1px 2px rgba(0,0,0,.2);
+}
+.cv-toggle.on .cv-toggle-dot { left: 19px; }
+.cv-toggle-l { font-size: 12.5px; }
+
+/* ---------- Conditional alert ---------- */
+.cv-cond-alert {
+  margin-top: 16px; padding: 12px 14px;
+  background: #fef3c7; border-left: 3px solid #FBB039;
+  font-size: 12px; color: #92400e; line-height: 1.4;
+  display: flex; align-items: flex-start; gap: 10px;
+}
+.cv-cond-dot { width: 8px; height: 8px; border-radius: 50%; background: #FBB039; flex-shrink: 0; margin-top: 4px; }
+.cv-cond-alert b { color: #78350f; }
+
+/* ---------- Resumo do pagamento ---------- */
+.cv-pay-summary {
+  margin-top: 16px; padding: 14px 16px;
+  background: #f7f7f7; border: 1px solid #e5e7eb; border-radius: 4px;
+}
+.cv-pay-row {
+  display: flex; justify-content: space-between;
+  font-size: 13px; padding: 5px 0;
+}
+.cv-pay-row b.cv-mono { font-family: 'Courier New', monospace; font-weight: 700; }
+.cv-pay-total {
+  margin-top: 4px; padding-top: 10px;
+  border-top: 1px solid #e5e7eb; font-weight: 700; font-size: 14px;
+}
+
+/* ---------- Step header ---------- */
+.cv-step-head { margin-bottom: 24px; }
+.cv-step-kicker { font-size: 10px; font-weight: 800; letter-spacing: .2em; text-transform: uppercase; color: #E89A1F; }
+.cv-step-title { font-size: 22px; font-weight: 800; margin: 4px 0 8px; letter-spacing: -.01em; }
+.cv-step-desc { font-size: 13px; color: #4a4a4a; margin: 0; line-height: 1.5; }
+.cv-step { padding: 0; }
+.cv-field-group { margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e5e7eb; }
+.cv-field-group:last-child { border-bottom: none; }
+.cv-group-title { font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; margin: 0 0 12px; }
+.cv-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 8px; }
+
+.cv-check-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; background: #fff;
+  border: 1px solid #e5e7eb; border-radius: 3px;
+  cursor: pointer; text-align: left; width: 100%; margin-bottom: 4px;
+}
+.cv-check-row:hover { background: #fafafa; }
+.cv-check-row.on { background: #fffbeb; border-color: #FBB039; }
+.cv-check-box {
+  width: 20px; height: 20px;
+  border: 2px solid #8a8a8a; border-radius: 3px;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0; color: #fff; font-weight: 700; font-size: 12px;
+}
+.cv-check-row.on .cv-check-box { background: #E89A1F; border-color: #E89A1F; }
+.cv-check-label { font-size: 12.5px; color: #111; }
+.cv-check-label b { font-weight: 700; }
+
+/* ---------- Summary (revisão) ---------- */
+.cv-summary { border: 1px solid #e5e7eb; border-radius: 4px; overflow: hidden; }
+.cv-summary-row {
+  display: flex; justify-content: space-between; gap: 16px;
+  padding: 11px 14px; font-size: 13px;
+  border-bottom: 1px solid #f5f5f5;
+}
+.cv-summary-row:last-child { border-bottom: none; }
+.cv-summary-k { color: #8a8a8a; }
+.cv-summary-v { text-align: right; font-weight: 700; }
+
+/* ============================================================
+   DOCUMENT preview (template do contrato CVE)
+   ============================================================ */
+.cv-doc-sheet {
+  background: #fff;
+  padding: 28px 36px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.06);
+  font-family: 'Times New Roman', serif;
+  font-size: 10.5pt; line-height: 1.5; color: #111;
+  max-width: 720px; margin: 0 auto;
+}
+.cv-doc-head {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  padding-bottom: 14px; margin-bottom: 18px;
+  border-bottom: 1px solid #ddd;
+}
+.cv-doc-logo { height: 36px; }
+.cv-doc-meta { display: flex; flex-direction: column; align-items: flex-end; }
+.cv-doc-meta-label { font-size: 8pt; color: #555; font-family: Arial, sans-serif; letter-spacing: .1em; text-transform: uppercase; }
+.cv-doc-meta-num { font-size: 11pt; font-weight: 800; font-family: 'Courier New', monospace; }
+
+.cv-doc-title {
+  text-align: center; font-family: Arial, sans-serif;
+  font-size: 13.5pt; font-weight: 700;
+  margin: 4pt 0 14pt; letter-spacing: .02em;
+}
+
+.cv-doc-section { margin: 14pt 0; }
+.cv-doc-preamble { margin-top: 8pt; }
+.cv-doc-section-title {
+  font-family: Arial, sans-serif;
+  font-size: 11pt; font-weight: 700;
+  margin: 0 0 6pt;
+}
+.cv-doc-section-num { color: #E89A1F; font-weight: 800; }
+
+.cv-doc-p { text-align: justify; margin: 6pt 0; }
+.cv-doc-p b { font-weight: 700; }
+.cv-doc-li {
+  position: relative; padding-left: 18pt;
+}
+.cv-doc-li::before {
+  content: '•'; position: absolute; left: 6pt; top: 0;
+  color: #E89A1F; font-weight: 700;
+}
+.cv-doc-callout {
+  background: #fffbeb; border-left: 3px solid #FBB039;
+  padding: 8pt 12pt; margin: 8pt 0;
+}
+.cv-doc-injected {
+  background: #fef3c7; border-left: 3px solid #E89A1F;
+  padding: 8pt 12pt; margin: 8pt 0;
+  position: relative;
+}
+.cv-doc-tag {
+  display: block; font-size: 8.5pt; color: #92400e;
+  font-family: Arial, sans-serif; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .04em;
+  margin-bottom: 4pt;
+}
+.cv-doc-center { text-align: center; margin-top: 24pt; }
+.cv-doc-sign-line { margin-top: 36pt; font-style: italic; }
+
+/* Tabela de parcelas */
+.cv-doc-table {
+  width: 100%; border-collapse: collapse;
+  margin: 8pt 0; font-size: 10pt;
+  font-family: Arial, sans-serif;
+}
+.cv-doc-table th {
+  background: #111; color: #fff;
+  padding: 6pt 8pt; text-align: left;
+  font-size: 9pt; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .06em;
+}
+.cv-doc-table td {
+  padding: 5pt 8pt; border-bottom: 1px solid #e5e7eb;
+}
+.cv-doc-table tbody tr:nth-child(even) td { background: #fafafa; }
+.cv-doc-table tfoot td {
+  border-top: 2px solid #111; border-bottom: none;
+  background: #fff; padding-top: 8pt;
+}
+.cv-mono { font-family: 'Courier New', monospace; }

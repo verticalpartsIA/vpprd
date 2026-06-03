@@ -201,7 +201,18 @@ body[data-density="airy"] {
   letter-spacing: .2em;
   text-transform: uppercase;
   color: var(--vp-gray-500);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
 }
+.sidebar__group-sublabel {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  color: var(--vp-gray-600, #6a6a6a);
+  text-transform: uppercase;
+}
+.app[data-sidebar="collapsed"] .sidebar__group-sublabel { display: none; }
 .app[data-sidebar="collapsed"] .sidebar__group-label {
   padding: 8px 0;
   text-align: center;

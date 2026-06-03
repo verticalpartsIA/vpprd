@@ -227,7 +227,7 @@ function ContratoEditorPage({ contrato, setRoute, onSaved }) {
       value: dados.valorTotal ? parseFloat(dados.valorTotal.replace(/\./g,'').replace(',','.')) : contrato?.value,
       ...(novoStatus ? { status: novoStatus } : {}),
     };
-    const { error } = await window.__VP_SB.sb.from('contratos').update(upd).eq('id', contrato.id);
+    const { error } = await window.__VP_SB.sb.from('contratos_venda_equipamentos').update(upd).eq('id', contrato.id);
     setSaving(false);
     if (error) return window.toast('Erro ao salvar: ' + error.message, 'error');
     setSavedAt(Date.now());

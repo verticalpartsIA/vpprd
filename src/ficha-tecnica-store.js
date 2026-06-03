@@ -1,0 +1,185 @@
+/* ============================================================
+   ficha-tecnica-store.js
+   Persistência das Fichas Técnicas no Supabase vpprd.
+   Toda ficha salva também sincroniza um registro em catalogo_produtos.
+   Expõe window.FTStore = { ... }
+   ============================================================ */
+(function () {
+  'use strict';
+
+  function sb() { return (window.__VP_SB || {}).sb; }
+
+  function uuid() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+      const r = Math.random()*16|0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+
+  function fmtDateTime(ts) {
+    if (!ts) return '—';
+    const d = new Date(ts);
+    return d.toLocaleDateString('pt-BR') + ' às ' + d.toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
+  }
+  function relative(ts) {
+    if (!ts) return '';
+    const diff = Date.now() - new Date(ts).getTime();
+    const m = Math.floor(diff/60000);
+    if (m < 1) return 'agora';
+    if (m < 60) return `há ${m} min`;
+    const h = Math.floor(m/60); if (h < 24) return `há ${h} h`;
+    const d = Math.floor(h/24); return `há ${d} d`;
+  }
+
+  /* ---------- CRUD ---------- */
+  async function listAll() {
+    const c = sb(); if (!c) return [];
+    const { data, error } = await c.from('fichas_tecnicas')
+      .select('*')
+      .order('criado_em', { ascending: false });
+    if (error) { console.warn('[FTStore] list error', error); return []; }
+    return data || [];
+  }
+  async function getById(id) {
+    const c = sb(); if (!c) return null;
+    const { data } = await c.from('fichas_tecnicas').select('*').eq('id', id).maybeSingle();
+    return data || null;
+  }
+
+  /* Extrai NCM dos campos ativos da categoria "codigos" (se houver). */
+  function extractNCM(state) {
+    const cat = state.cats.find((c) => c.id === 'codigos');
+    if (!cat) return null;
+    const fld = cat.campos.find((fld) => fld.ativo && /^NCM$/i.test(fld.nome));
+    if (!fld || !fld.valor) return null;
+    return String(fld.valor).trim();
+  }
+
+  /* Converte cats → atributos[] no formato esperado por catalogo_produtos */
+  function buildAtributos(state) {
+    const out = [];
+    state.cats.forEach((cat) => {
+      cat.campos.forEach((fld) => {
+        if (!fld.ativo) return;
+        if (fld.valor == null || String(fld.valor).trim() === '') return;
+        out.push({
+          categoria: cat.nome,
+          nome: fld.nome,
+          valor: String(fld.valor).trim(),
+          unidade: fld.unidade || '',
+          tipo: fld.tipo || 'number',
+        });
+      });
+    });
+    return out;
+  }
+
+  /* Sync: upsert no catalogo_produtos. Retorna id do produto. */
+  async function syncCatalogoProduto(ficha, state) {
+    const c = sb(); if (!c) return null;
+    const ident = state.identificacao || {};
+    const codigo = ident.codigoProduto || ident.sku || ficha.numero_documento;
+    const ncm = extractNCM(state);
+    const atributos = buildAtributos(state);
+
+    const row = {
+      id: ficha.produto_id || ('ft-' + (ficha.id || uuid())),
+      codigo: codigo || ficha.numero_documento,
+      situacao: 'ativado',
+      modalidade: 'IMPORTACAO',
+      denominacao: ident.nomeProduto || 'Produto sem nome',
+      detalhamento: ident.descricaoComercial || ident.descricaoTecnica || '',
+      ncm: ncm || null,
+      ncm_descricao: ident.categoriaProduto || null,
+      codigo_interno: ident.codigoProduto || ident.sku || null,
+      unidade_medida: 'UN',
+      atributos: atributos,
+      fabricantes: [],
+      updated_at: new Date().toISOString(),
+    };
+    const { error } = await c.from('catalogo_produtos').upsert(row, { onConflict: 'id' });
+    if (error) console.warn('[FTStore] sync catalogo_produtos error', error);
+    return row.id;
+  }
+
+  /* Cria uma nova ficha + sincroniza no catalogo_produtos */
+  async function createDraft(state, opts) {
+    opts = opts || {};
+    const c = sb();
+    if (!c) throw new Error('Supabase indisponível');
+
+    const { data: numRows, error: numErr } = await c.rpc('next_doc_number', { p_prefixo: 'VPFT' });
+    if (numErr) throw numErr;
+    const num = (Array.isArray(numRows) ? numRows[0] : numRows) || {};
+
+    const ident = state.identificacao || {};
+    const rec = {
+      id: uuid(),
+      numero_documento: num.numero_documento,
+      seq_mes: num.seq_mes,
+      ano_mes: num.ano_mes,
+      nome_produto: ident.nomeProduto || 'Sem nome',
+      categoria_produto: ident.categoriaProduto || null,
+      sku: ident.sku || null,
+      codigo_produto: ident.codigoProduto || null,
+      part_number: ident.partNumber || null,
+      descricao_comercial: ident.descricaoComercial || null,
+      descricao_tecnica: ident.descricaoTecnica || null,
+      identificacao: ident,
+      cats: state.cats,
+      midia: state.midia || {},
+      criado_por: opts.criadoPor || null,
+      criado_em: new Date().toISOString(),
+      atualizado_em: new Date().toISOString(),
+    };
+
+    // sync no catálogo primeiro pra ter o produto_id
+    const prodId = await syncCatalogoProduto(rec, state);
+    rec.produto_id = prodId;
+
+    const { error } = await c.from('fichas_tecnicas').insert(rec);
+    if (error) throw error;
+    return rec;
+  }
+
+  /* Atualiza uma ficha existente (e re-sincroniza o produto) */
+  async function update(id, state) {
+    const c = sb();
+    const cur = await getById(id);
+    if (!cur) return null;
+    const ident = state.identificacao || {};
+    const patch = {
+      nome_produto: ident.nomeProduto || 'Sem nome',
+      categoria_produto: ident.categoriaProduto || null,
+      sku: ident.sku || null,
+      codigo_produto: ident.codigoProduto || null,
+      part_number: ident.partNumber || null,
+      descricao_comercial: ident.descricaoComercial || null,
+      descricao_tecnica: ident.descricaoTecnica || null,
+      identificacao: ident,
+      cats: state.cats,
+      midia: state.midia || {},
+      atualizado_em: new Date().toISOString(),
+    };
+    await c.from('fichas_tecnicas').update(patch).eq('id', id);
+    const updated = { ...cur, ...patch };
+    await syncCatalogoProduto(updated, state);
+    return updated;
+  }
+
+  async function remove(id) {
+    const c = sb();
+    const cur = await getById(id);
+    if (cur && cur.produto_id) {
+      await c.from('catalogo_produtos').delete().eq('id', cur.produto_id);
+    }
+    await c.from('fichas_tecnicas').delete().eq('id', id);
+  }
+
+  window.FTStore = {
+    uuid, fmtDateTime, relative,
+    listAll, getById, createDraft, update, remove,
+    syncCatalogoProduto, extractNCM, buildAtributos,
+  };
+}());

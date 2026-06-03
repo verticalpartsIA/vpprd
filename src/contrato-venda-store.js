@@ -1,0 +1,356 @@
+/* ============================================================
+   contrato-venda-store.js
+   Persistência do Contrato de Venda de Equipamentos no vpprd.
+   Tabela: contratos_venda_equipamentos. Prefixo: VPVE.
+   Expõe window.CVStore = { ... }
+   ============================================================ */
+(function () {
+  'use strict';
+
+  function sb() { return (window.__VP_SB || {}).sb; }
+
+  function uuid() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+      const r = Math.random()*16|0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+  function shortToken() {
+    const a = uuid().split('-').join('');
+    return a.slice(0, 16);
+  }
+
+  /* ---------- Auditoria (IP / UA / device / hash) ---------- */
+  let _ipCache;
+  async function getPublicIP() {
+    if (_ipCache !== undefined) return _ipCache;
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 3000);
+      const r = await fetch('https://api.ipify.org?format=json', { signal: ctrl.signal, cache: 'no-store' });
+      clearTimeout(t);
+      const j = await r.json();
+      _ipCache = j.ip || null;
+    } catch (e) { _ipCache = null; }
+    return _ipCache;
+  }
+  function deviceLabel(ua) {
+    ua = ua || navigator.userAgent;
+    let os = 'Desktop';
+    if (/android/i.test(ua)) os = 'Android';
+    else if (/iphone|ipad|ipod/i.test(ua)) os = 'iOS';
+    else if (/windows/i.test(ua)) os = 'Windows';
+    else if (/mac os/i.test(ua)) os = 'macOS';
+    else if (/linux/i.test(ua)) os = 'Linux';
+    let app = 'Navegador';
+    if (/whatsapp/i.test(ua)) app = 'WhatsApp';
+    else if (/edg/i.test(ua)) app = 'Edge';
+    else if (/chrome/i.test(ua)) app = 'Chrome';
+    else if (/firefox/i.test(ua)) app = 'Firefox';
+    else if (/safari/i.test(ua)) app = 'Safari';
+    return `${app} / ${os}`;
+  }
+  async function sha256Hex(text) {
+    try {
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+    } catch (e) {
+      let h = 0; for (let i = 0; i < text.length; i++) { h = (h<<5)-h+text.charCodeAt(i); h |= 0; }
+      return 'fallback-' + (h>>>0).toString(16);
+    }
+  }
+
+  function fmtDateTime(ts) {
+    if (!ts) return '—';
+    const d = new Date(ts);
+    return d.toLocaleDateString('pt-BR') + ' às ' + d.toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
+  }
+  function fmtDate(ts) { return ts ? new Date(ts).toLocaleDateString('pt-BR') : '—'; }
+  function relative(ts) {
+    if (!ts) return '';
+    const diff = Date.now() - new Date(ts).getTime();
+    const m = Math.floor(diff/60000);
+    if (m < 1) return 'agora';
+    if (m < 60) return `há ${m} min`;
+    const h = Math.floor(m/60); if (h < 24) return `há ${h} h`;
+    const d = Math.floor(h/24); return `há ${d} d`;
+  }
+  function signUrl(token) {
+    return `${window.location.origin}/assinar/${encodeURIComponent(token)}`;
+  }
+  function prettyUrl(token) { return `verticalparts.com.br/assinar/${token}`; }
+  function whatsAppHref(phone, message) {
+    const p = (phone || '').replace(/\D/g, '');
+    const base = p ? 'https://wa.me/' + p : 'https://wa.me/';
+    return base + '?text=' + encodeURIComponent(message);
+  }
+  function mailtoHref(email, subject, body) {
+    return `mailto:${email || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  }
+
+  const STATUS = {
+    rascunho:    { id:'rascunho',    label:'Rascunho',    icon:'📝', tone:'gray',   order:0 },
+    enviado:     { id:'enviado',     label:'Enviado',     icon:'📤', tone:'blue',   order:1 },
+    visualizado: { id:'visualizado', label:'Visualizado', icon:'👁',  tone:'yellow', order:2 },
+    assinado:    { id:'assinado',    label:'Assinado',    icon:'✍',  tone:'green',  order:3 },
+    expirado:    { id:'expirado',    label:'Expirado',    icon:'⚠',  tone:'red',    order:4 },
+    recusado:    { id:'recusado',    label:'Recusado',    icon:'✕',  tone:'red',    order:4 },
+  };
+
+  /* ---------- Notificações em alertas (Geral › Notificações) ---------- */
+  async function pushNotification(rec, newStatus, meta) {
+    try {
+      const num = rec.numero_documento;
+      const titularNome = (rec.recipient && rec.recipient.name) || rec.responsavel_nome || rec.comprador_razao_social || '';
+      const map = {
+        enviado:     { level: 'info',    title: `Contrato venda ${num} enviado`,                 sub: `Para ${titularNome} · canal ${meta && meta.channel ? (meta.channel === 'whatsapp' ? 'WhatsApp' : meta.channel === 'email' ? 'E-mail' : 'Link') : '—'}` },
+        visualizado: { level: 'warning', title: `Contrato venda ${num} foi VISUALIZADO`,         sub: `Aberto por ${titularNome} · ${meta && meta.ip ? 'IP ' + meta.ip + ' · ' : ''}${fmtDateTime(Date.now())}` },
+        assinado:    { level: 'info',    title: `Contrato venda ${num} ASSINADO`,                sub: `Por ${meta && meta.signerName ? meta.signerName : titularNome} · ${meta && meta.ip ? 'IP ' + meta.ip : ''}` },
+        recusado:    { level: 'danger',  title: `Contrato venda ${num} foi RECUSADO`,            sub: `Recusado pelo destinatário em ${fmtDateTime(Date.now())}` },
+        expirado:    { level: 'warning', title: `Contrato venda ${num} EXPIROU`,                 sub: `Link aguardando assinatura por 7 dias sem retorno` },
+      };
+      const cfg = map[newStatus];
+      if (!cfg) return;
+      const c = sb(); if (!c) return;
+      await c.from('alertas').insert({
+        id: 'cv-' + uuid(),
+        level: cfg.level,
+        title: cfg.title,
+        sub: cfg.sub,
+        module: 'Jurídico',
+        resolved: false,
+      });
+    } catch (e) { console.warn('[CVStore] notification failed', e); }
+  }
+
+  /* ---------- CRUD ---------- */
+  async function listAll() {
+    const c = sb(); if (!c) return [];
+    const { data, error } = await c.from('contratos_venda_equipamentos')
+      .select('*')
+      .not('token', 'is', null)            // só os criados pelo novo fluxo
+      .order('criado_em', { ascending: false });
+    if (error) { console.warn('[CVStore] list error', error); return []; }
+    return data || [];
+  }
+  async function getById(id) {
+    const c = sb(); if (!c) return null;
+    const { data } = await c.from('contratos_venda_equipamentos').select('*').eq('id', id).maybeSingle();
+    return data || null;
+  }
+  async function getByToken(token) {
+    const c = sb(); if (!c) return null;
+    const { data } = await c.from('contratos_venda_equipamentos').select('*').eq('token', token).maybeSingle();
+    return data || null;
+  }
+
+  /* Cria rascunho. Gera VPVE numero_documento via RPC */
+  async function createDraft(formState, opts) {
+    opts = opts || {};
+    const c = sb();
+    if (!c) throw new Error('Supabase indisponível');
+
+    const { data: numRows, error: numErr } = await c.rpc('next_doc_number', { p_prefixo: 'VPVE' });
+    if (numErr) throw numErr;
+    const num = (Array.isArray(numRows) ? numRows[0] : numRows) || {};
+
+    const valor = window.CV.parseMoney(formState.valor);
+    const doc = window.CV.buildContract({
+      form: formState, comprador: formState.comprador,
+      valor, sinalPct: formState.sinalPct, parcelas: formState.parcelas,
+      numero: num.numero_documento,
+    });
+    const titulo = doc.titulo;
+    const objetoResumo = window.CV.descEquipamento(formState);
+
+    const idText = 'CVE-' + num.seq_mes + '/' + num.ano_mes; // id text PK legado
+    const rec = {
+      id: idText,
+      numero_documento: num.numero_documento,
+      seq_mes: num.seq_mes,
+      ano_mes: num.ano_mes,
+      token: shortToken(),
+      titulo,
+      comprador_razao_social: formState.comprador.razao,
+      comprador_cnpj: formState.comprador.cnpj,
+      responsavel_nome: formState.comprador.rep,
+      responsavel_cpf: formState.comprador.repCpf || '',
+      valor_total_num: valor,
+      objeto_resumo: objetoResumo,
+      vendedor_id: opts.vendedorId || null,
+      status: 'rascunho',
+      channel: null,
+      recipient: { name: formState.comprador.rep, contact: formState.comprador.email || formState.comprador.tel || '' },
+      form_state: formState,
+      doc,
+      log: [{ status: 'rascunho', at: new Date().toISOString(), meta: null }],
+      audit: {},
+      sent_at: null, viewed_at: null, signed_at: null, expires_at: null,
+      criado_em: new Date().toISOString(),
+      atualizado_em: new Date().toISOString(),
+      // legados (mantém compat com Jurídico antigo)
+      client: formState.comprador.razao,
+      value: Math.round(valor) || null,
+      issued_date: new Date().toISOString().slice(0,10),
+      tipo_contrato: 'cliente',
+      dados: { numero_documento: num.numero_documento },
+    };
+
+    const { error } = await c.from('contratos_venda_equipamentos').insert(rec);
+    if (error) throw error;
+    return rec;
+  }
+
+  async function updateFormState(id, formState) {
+    const c = sb();
+    const cur = await getById(id);
+    if (!cur) return null;
+    const valor = window.CV.parseMoney(formState.valor);
+    const doc = window.CV.buildContract({
+      form: formState, comprador: formState.comprador,
+      valor, sinalPct: formState.sinalPct, parcelas: formState.parcelas,
+      numero: cur.numero_documento,
+    });
+    const patch = {
+      titulo: doc.titulo,
+      comprador_razao_social: formState.comprador.razao,
+      comprador_cnpj: formState.comprador.cnpj,
+      responsavel_nome: formState.comprador.rep,
+      responsavel_cpf: formState.comprador.repCpf || '',
+      valor_total_num: valor,
+      objeto_resumo: window.CV.descEquipamento(formState),
+      form_state: formState,
+      doc,
+      atualizado_em: new Date().toISOString(),
+    };
+    await c.from('contratos_venda_equipamentos').update(patch).eq('id', id);
+    return { ...cur, ...patch };
+  }
+
+  async function markSent(id, channel, recipient) {
+    const c = sb();
+    const cur = await getById(id);
+    if (!cur) return null;
+    const now = new Date();
+    const expires = new Date(now.getTime() + 7*24*3600*1000);
+    const log = (cur.log || []).slice();
+    log.push({ status:'enviado', at: now.toISOString(), meta:{ channel } });
+    const patch = {
+      status: 'enviado',
+      channel,
+      recipient: recipient || cur.recipient || {},
+      sent_at: now.toISOString(),
+      expires_at: expires.toISOString(),
+      log,
+      atualizado_em: now.toISOString(),
+    };
+    await c.from('contratos_venda_equipamentos').update(patch).eq('id', id);
+    const updated = { ...cur, ...patch };
+    await pushNotification(updated, 'enviado', { channel });
+    return updated;
+  }
+
+  async function markViewed(token) {
+    const c = sb();
+    const cur = await getByToken(token);
+    if (!cur) return null;
+    if (cur.status !== 'enviado' && cur.status !== 'rascunho') return cur;
+
+    const ip = await getPublicIP();
+    const ua = navigator.userAgent;
+    const device = deviceLabel(ua);
+    const now = new Date();
+    const audit = { ...(cur.audit || {}), viewedAt: now.toISOString(), viewIp: ip, viewUa: ua, viewDevice: device };
+    const log = (cur.log || []).slice();
+    log.push({ status:'visualizado', at: now.toISOString(), meta:{ ip, ua } });
+    const patch = {
+      status: 'visualizado',
+      viewed_at: now.toISOString(),
+      audit, log,
+      atualizado_em: now.toISOString(),
+    };
+    await c.from('contratos_venda_equipamentos').update(patch).eq('token', token);
+    const updated = { ...cur, ...patch };
+    await pushNotification(updated, 'visualizado', { ip });
+    return updated;
+  }
+
+  async function markSigned(token, sig) {
+    const c = sb();
+    const cur = await getByToken(token);
+    if (!cur) return null;
+    const ip = await getPublicIP();
+    const ua = navigator.userAgent;
+    const device = deviceLabel(ua);
+    const now = new Date();
+    const hash = await sha256Hex(JSON.stringify(cur.form_state) + '|' + (sig.signerName || ''));
+    const audit = {
+      ...(cur.audit || {}),
+      signedAt: now.toISOString(),
+      signIp: ip, signUa: ua, signDevice: device,
+      signerName: sig.signerName,
+      signatureType: sig.type,
+      signatureData: sig.data,
+      consent: true, hash,
+    };
+    const log = (cur.log || []).slice();
+    log.push({ status:'assinado', at: now.toISOString(), meta:{ ip, ua, hash } });
+    const patch = {
+      status: 'assinado',
+      signed_at: now.toISOString(),
+      audit, log,
+      atualizado_em: now.toISOString(),
+    };
+    await c.from('contratos_venda_equipamentos').update(patch).eq('token', token);
+    const updated = { ...cur, ...patch };
+    await pushNotification(updated, 'assinado', { ip, signerName: sig.signerName });
+    return updated;
+  }
+
+  async function refuse(token) {
+    const c = sb();
+    const cur = await getByToken(token);
+    if (!cur) return null;
+    const now = new Date();
+    const log = (cur.log || []).slice();
+    log.push({ status:'recusado', at: now.toISOString(), meta:{ at: now.toISOString() } });
+    const patch = { status:'recusado', log, atualizado_em: now.toISOString() };
+    await c.from('contratos_venda_equipamentos').update(patch).eq('token', token);
+    const updated = { ...cur, ...patch };
+    await pushNotification(updated, 'recusado', {});
+    return updated;
+  }
+
+  async function sweepExpired() {
+    const c = sb();
+    const now = new Date();
+    const { data } = await c.from('contratos_venda_equipamentos')
+      .select('id,status,expires_at,log,numero_documento,recipient,responsavel_nome,comprador_razao_social')
+      .in('status', ['enviado', 'visualizado'])
+      .lt('expires_at', now.toISOString());
+    for (const r of (data || [])) {
+      const log = (r.log || []).slice();
+      log.push({ status:'expirado', at: now.toISOString(), meta: null });
+      await c.from('contratos_venda_equipamentos').update({ status:'expirado', log, atualizado_em: now.toISOString() }).eq('id', r.id);
+      await pushNotification(r, 'expirado', {});
+    }
+  }
+
+  async function remove(id) {
+    const c = sb();
+    await c.from('contratos_venda_equipamentos').delete().eq('id', id);
+  }
+
+  window.CVStore = {
+    STATUS,
+    uuid, shortToken,
+    fmtDateTime, fmtDate, relative,
+    signUrl, prettyUrl, whatsAppHref, mailtoHref,
+    listAll, getById, getByToken,
+    createDraft, updateFormState,
+    markSent, markViewed, markSigned, refuse,
+    sweepExpired, remove,
+    getPublicIP, deviceLabel, sha256Hex,
+  };
+}());

@@ -94,7 +94,7 @@ function ModalNovoContrato({ onClose, onSaved, tipoDefault = 'cliente' }) {
     setSaving(true);
     const ano = new Date().getFullYear();
     const id = 'CTR-' + String(Date.now()).slice(-4) + '/' + ano;
-    const { error } = await window.__VP_SB.sb.from('contratos').insert({
+    const { error } = await window.__VP_SB.sb.from('contratos_venda_equipamentos').insert({
       id,
       client: f.client,
       project_id: f.projeto || null,
@@ -269,7 +269,7 @@ function JuridicoPage({ setRoute, setSubsel }) {
 
   const reload = () => {
     setLoading(true);
-    window.__VP_SB.sb.from('contratos').select('*').order('issued_date', { ascending: false })
+    window.__VP_SB.sb.from('contratos_venda_equipamentos').select('*').order('issued_date', { ascending: false })
       .then(({ data }) => { setContratos(data || []); setLoading(false); });
   };
   React.useEffect(() => { reload(); }, []);

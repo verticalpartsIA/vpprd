@@ -18,3 +18,6 @@ dist/
 .env
 .env.local
 npm-debug.log*
+
+# Segredos locais (service role do projeto Propostas) — NUNCA versionar
+.propostas-key.js

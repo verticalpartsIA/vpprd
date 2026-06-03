@@ -13,13 +13,14 @@ const ROUTE_TITLE = {
   propostas: "Propostas Comerciais",
   "proposta-editor": "Editor de Proposta",
   engenharia: "Projetos de Engenharia",
-  "ncm-kanban": "Solicitações NCM",
-  "ncm-detail": "Ficha NCM",
   "ncm-catalogo": "Catálogo de Produtos",
   "eng-configurador": "Projeto de Equipamento",
   "desenho-tecnico": "Desenho Técnico ER | ES",
+  "ficha-tecnica": "Ficha Técnica",
   juridico: "Contratos & Minutas",
   "contrato-editor": "Editor de Contrato",
+  "contrato-venda-equipamentos": "Contrato Venda de Equipamentos",
+  "contrato-instalador": "Contrato Instalador",
   instalacao: "Instalação em Campo",
   art: "ART de Instalação",
   cronograma: "Cronograma de Instalação",
@@ -74,6 +75,16 @@ class ErrorBoundary extends React.Component {
     }
     return this.props.children;
   }
+}
+
+function EmConstrucaoPage({ titulo, descricao }) {
+  return (
+    <div style={{ padding: 32, maxWidth: 720, margin: "40px auto", textAlign: "center" }}>
+      <div style={{ fontSize: 40, marginBottom: 12 }}>🏗️</div>
+      <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>{titulo}</div>
+      <div style={{ fontSize: 13, color: "var(--vp-gray-500, #888)", lineHeight: 1.5 }}>{descricao}</div>
+    </div>
+  );
 }
 
 function App() {
@@ -150,13 +161,14 @@ function App() {
       case "propostas": return <PropostasPage setRoute={setRoute}/>;
       case "proposta-editor": return <PropostaEditor setRoute={setRoute}/>;
       case "engenharia": return <EngenhariaPage setRoute={setRoute}/>;
-      case "ncm-kanban": return <NcmKanbanPage setRoute={setRoute} setSubsel={setSubsel}/>;
-      case "ncm-detail": return <NcmDetailPage product={subsel?.ncmProduct} setRoute={setRoute}/>;
       case "ncm-catalogo": return <NcmCatalogoPage setRoute={setRoute}/>;
       case "eng-configurador": return <ConfiguradorPage setRoute={setRoute}/>;
       case "desenho-tecnico": return <DesenhoTecnicoPage setRoute={setRoute}/>;
+      case "ficha-tecnica": return <FichaTecnicaPage/>;
       case "juridico": return <JuridicoPage setRoute={setRoute} setSubsel={setSubsel}/>;
       case "contrato-editor": return <ContratoEditorPage contrato={subsel} setRoute={setRoute} onSaved={() => {}} />;
+      case "contrato-venda-equipamentos": return <ContratoVendaEquipamentosPage/>;
+      case "contrato-instalador": return <ContratoInstaladorPage/>;
       case "instalacao": return <InstalacaoPage/>;
       case "art": return <ArtPage/>;
       case "cronograma": return <CronogramaPage/>;
@@ -231,11 +243,13 @@ function App() {
               { value: "propostas", label: "Propostas (wizard)" },
               { value: "proposta-editor", label: "📝 Editor de Proposta (3 eq.)" },
               { value: "engenharia", label: "Engenharia + Laudo" },
-              { value: "ncm-kanban", label: "📦 Solicitações NCM" },
               { value: "ncm-catalogo", label: "📋 Catálogo de Produtos" },
               { value: "eng-configurador", label: "🛠 Projeto de Equipamento" },
               { value: "desenho-tecnico", label: "📐 Desenho Técnico ER | ES" },
+              { value: "ficha-tecnica", label: "📋 Ficha Técnica" },
               { value: "juridico", label: "Jurídico (✂️ redator)" },
+              { value: "contrato-venda-equipamentos", label: "📄 Contrato Venda de Equipamentos" },
+              { value: "contrato-instalador", label: "👷 Contrato Instalador" },
               { value: "instalacao", label: "Instalação + Checklist" },
               { value: "art", label: "ART de Instalação" },
               { value: "cronograma", label: "Cronograma de Instalação" },

@@ -13,16 +13,18 @@ const NAV_GROUPS = [
     { id: "leads", label: "Leads", icon: "flag" },
     { id: "cotacoes", label: "Cotações China", icon: "globe" },
     { id: "precificacao", label: "Precificação", icon: "calculator", restrict: ["financeiro", "admin"] },
-    { id: "propostas", label: "Propostas", icon: "proposal" },
   ]},
-  { label: "Contrato", items: [
+  { label: "Jurídico", sublabel: "Propostas & Contratos", items: [
     { id: "juridico", label: "Jurídico", icon: "scale" },
+    { id: "propostas", label: "Propostas", icon: "proposal" },
+    { id: "contrato-venda-equipamentos", label: "Contrato Venda de Equipamentos", icon: "fileText" },
+    { id: "contrato-instalador", label: "Contrato Instalador", icon: "hardhat" },
   ]},
   { label: "Engenharia", items: [
     { id: "engenharia", label: "Engenharia", icon: "ruler" },
     { id: "eng-configurador", label: "Projeto de Equipamento", icon: "grid" },
     { id: "desenho-tecnico", label: "Desenho Técnico ER|ES", icon: "ruler" },
-    { id: "ncm-kanban", label: "Solicitações NCM", icon: "package" },
+    { id: "ficha-tecnica", label: "Ficha Técnica", icon: "fileText" },
     { id: "ncm-catalogo", label: "Catálogo de Produtos", icon: "fileSearch" },
   ]},
   { label: "Logística", items: [
@@ -69,7 +71,10 @@ function Sidebar({ route, setRoute, role, collapsed, onToggle }) {
           if (!items.length) return null;
           return (
             <div className="sidebar__group" key={group.label}>
-              <div className="sidebar__group-label"><span>{group.label}</span></div>
+              <div className="sidebar__group-label">
+                <span>{group.label}</span>
+                {group.sublabel ? <span className="sidebar__group-sublabel">{group.sublabel}</span> : null}
+              </div>
               {items.map((item) => {
                 const Active = React.createElement(Icon[item.icon] || Icon.bolt);
                 return (
@@ -107,14 +112,15 @@ const BREADCRUMB_MAP = {
   leads:         { module: "Comercial", page: "Leads", icon: "flag" },
   cotacoes:      { module: "Comercial", page: "Cotações China", icon: "globe" },
   precificacao:  { module: "Comercial", page: "Precificação", icon: "calculator" },
-  propostas:     { module: "Comercial", page: "Propostas", icon: "proposal" },
-  juridico:      { module: "Contrato", page: "Jurídico", icon: "scale" },
+  propostas:     { module: "Jurídico", page: "Propostas", icon: "proposal" },
+  juridico:      { module: "Jurídico", page: "Jurídico", icon: "scale" },
+  "contrato-venda-equipamentos": { module: "Jurídico", page: "Contrato Venda de Equipamentos", icon: "fileText" },
+  "contrato-instalador":         { module: "Jurídico", page: "Contrato Instalador", icon: "hardhat" },
   engenharia:    { module: "Engenharia", page: "Engenharia", icon: "ruler" },
-  "ncm-kanban":  { module: "Engenharia", page: "Solicitações NCM", icon: "package" },
-  "ncm-detail":  { module: "Engenharia", page: "Solicitação NCM — Detalhe", icon: "fileSearch" },
   "ncm-catalogo": { module: "Engenharia", page: "Catálogo de Produtos", icon: "fileSearch" },
   "eng-configurador": { module: "Engenharia", page: "Projeto de Equipamento", icon: "grid" },
   "desenho-tecnico": { module: "Engenharia", page: "Desenho Técnico ER | ES", icon: "ruler" },
+  "ficha-tecnica":   { module: "Engenharia", page: "Ficha Técnica", icon: "fileText" },
   importacao:    { module: "Logística", page: "Importação", icon: "ship" },
   compras:       { module: "Logística", page: "Compras Nacional", icon: "truck" },
   instalacao:    { module: "Instalação & Entrega", page: "Instalação", icon: "hardhat" },

@@ -47,9 +47,9 @@ function FtFichaGrupo({ g }) {
     </div>
   );
 }
-function FtFichaFrame({ src, legenda, aspect }) {
+function FtFichaFrame({ src, legenda }) {
   return (
-    <div className="ft-fz-frame" style={{ aspectRatio: aspect }}>
+    <div className="ft-fz-frame">
       {src ? <img src={src} alt={legenda}/> : (
         <div className="ft-fz-ph">
           <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="1"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
@@ -59,6 +59,26 @@ function FtFichaFrame({ src, legenda, aspect }) {
     </div>
   );
 }
+
+/* Mede aspect ratio da maior imagem (foto > desenho) pra decidir a orientação
+   da página: portrait se h > w*1.15 (produto vertical tipo porta/totem),
+   senão landscape (widescreen, padrão da Vertical Parts) */
+function useFichaOrientation(midia) {
+  const [orientation, setOrientation] = _ftUS('landscape');
+  _ftUE(() => {
+    const src = (midia && (midia.foto || midia.desenho)) || null;
+    if (!src) { setOrientation('landscape'); return; }
+    const img = new Image();
+    img.onload = () => {
+      const r = img.naturalWidth / Math.max(1, img.naturalHeight);
+      setOrientation(r < 0.85 ? 'portrait' : 'landscape');
+    };
+    img.onerror = () => setOrientation('landscape');
+    img.src = src;
+  }, [midia && midia.foto, midia && midia.desenho]);
+  return orientation;
+}
+
 function FtFicha({ state }) {
   const d = window.FT.compile(state);
   const id = d.identificacao;
@@ -71,12 +91,13 @@ function FtFicha({ state }) {
     id.partNumber && { k: 'Part Number', v: id.partNumber },
   ].filter(Boolean);
   const vazia = !d.grupos.length && idents.length === 0 && !(id.descricaoTecnica && id.descricaoTecnica.trim());
+  const orientation = useFichaOrientation(d.temMidia ? d.midia : null);
 
   return (
-    <div className="ft-ficha">
+    <div className="ft-ficha" data-orientation={orientation} data-has-media={d.temMidia ? '1' : '0'}>
       <div className="ft-fz-logo"><img src="assets/logo-verticalparts-color.png" alt="VerticalParts"/></div>
       <div className={'ft-fz-columns' + (d.temMidia ? '' : ' no-media')}>
-        <div className="ft-fz-zone">
+        <div className="ft-fz-zone ft-fz-zone--text">
           <div className="ft-fz-titlebar ft-tb-yellow">Ficha de Dados : {nome}</div>
           {idents.length > 0 && (
             <div className="ft-fz-ident">
@@ -98,11 +119,11 @@ function FtFicha({ state }) {
           )}
         </div>
         {d.temMidia && (
-          <div className="ft-fz-zone">
+          <div className="ft-fz-zone ft-fz-zone--media">
             <div className="ft-fz-titlebar ft-tb-black">Imagens & Desenho</div>
             <div className="ft-fz-media">
-              {d.midia.desenho && <FtFichaFrame src={d.midia.desenho} legenda="Desenho técnico" aspect="303 / 200"/>}
-              {d.midia.foto && <FtFichaFrame src={d.midia.foto} legenda="Foto do produto" aspect="303 / 240"/>}
+              {d.midia.desenho && <FtFichaFrame src={d.midia.desenho} legenda="Desenho técnico"/>}
+              {d.midia.foto && <FtFichaFrame src={d.midia.foto} legenda="Foto do produto"/>}
             </div>
           </div>
         )}
@@ -470,7 +491,19 @@ function FtGenerator({ initial, onSaved, onCancel }) {
           <div className="ft-fo-bar">
             <span>Ficha Técnica — {state.identificacao.nomeProduto}</span>
             <div className="ft-fo-actions">
-              <button className="ft-btn primary" onClick={() => window.print()}>
+              <button className="ft-btn primary" onClick={() => {
+                // Lê a orientação atual da ficha (definida pela imagem) e
+                // injeta @page correspondente. Garante 1 página exata sem brancos.
+                const ficha = document.querySelector('.ft-ficha-overlay .ft-ficha');
+                const ori = (ficha && ficha.getAttribute('data-orientation')) || 'landscape';
+                let inj = document.getElementById('__ft-print-page');
+                if (inj) inj.remove();
+                inj = document.createElement('style');
+                inj.id = '__ft-print-page';
+                inj.textContent = '@page { size: A4 ' + ori + '; margin: 0; }';
+                document.head.appendChild(inj);
+                setTimeout(() => window.print(), 60);
+              }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"/></svg>
                 Imprimir / Salvar PDF
               </button>

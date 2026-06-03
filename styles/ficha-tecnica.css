@@ -332,20 +332,42 @@
 .ft-preview-scaler { box-shadow: 0 4px 12px rgba(0,0,0,.08); }
 
 /* ============================================================
-   FICHA (A4 paisagem) — VerticalParts style
+   FICHA — VerticalParts style
+   Dimensões fixas (sem min-height) garantem encaixe em 1 página.
+   data-orientation="landscape" (default) → A4 paisagem 297×210mm
+   data-orientation="portrait"            → A4 retrato 210×297mm
    ============================================================ */
 .ft-ficha {
-  width: 1040px; min-height: 585px;
-  background: var(--ft-white); padding: 26px 30px 0;
+  width: 297mm; height: 210mm;
+  background: var(--ft-white);
+  padding: 8mm 10mm 0;
   display: flex; flex-direction: column;
   color: var(--ft-fg1);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  overflow: hidden;            /* nada vaza pra criar pág. 2 */
+  box-sizing: border-box;
 }
-.ft-fz-logo { margin-bottom: 16px; }
-.ft-fz-logo img { height: 42px; display: block; }
-.ft-fz-columns { display: grid; grid-template-columns: 1.7fr 1fr; gap: 22px; flex: 1; }
+.ft-ficha[data-orientation="portrait"] {
+  width: 210mm; height: 297mm;
+}
+.ft-fz-logo { margin-bottom: 10px; flex-shrink: 0; }
+.ft-fz-logo img { height: 36px; display: block; }
+.ft-fz-columns {
+  display: grid;
+  grid-template-columns: 1.7fr 1fr;
+  gap: 18px;
+  flex: 1; min-height: 0;
+}
 .ft-fz-columns.no-media { grid-template-columns: 1fr; }
-.ft-fz-zone { display: flex; flex-direction: column; min-width: 0; }
+/* Em retrato, deixa a coluna da mídia maior (foto vertical predomina) */
+.ft-ficha[data-orientation="portrait"] .ft-fz-columns {
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.ft-fz-zone {
+  display: flex; flex-direction: column;
+  min-width: 0; min-height: 0;
+}
 .ft-fz-titlebar {
   height: 34px; display: flex; align-items: center; padding: 0 14px;
   font-weight: 800; font-size: 14.5px;
@@ -382,8 +404,15 @@
   color: var(--ft-steel); margin-bottom: 3px;
 }
 .ft-fz-descterm p { margin: 0; font-size: 11.5px; line-height: 1.5; color: var(--ft-fg1); }
-.ft-fz-specs { column-count: 2; column-gap: 28px; padding-top: 4px; }
+.ft-fz-specs {
+  column-count: 2; column-gap: 28px; padding-top: 4px;
+  flex: 1; min-height: 0;
+}
 .ft-fz-columns.no-media .ft-fz-specs { column-count: 3; }
+/* Retrato + mídia: menos espaço pras specs, ainda 2 col */
+.ft-ficha[data-orientation="portrait"] .ft-fz-specs {
+  column-count: 1; column-gap: 16px;
+}
 .ft-fz-grp { break-inside: avoid; margin-bottom: 14px; }
 .ft-fz-grp h4 {
   font-weight: 800; font-size: 11.5px;
@@ -404,14 +433,25 @@
 }
 .ft-fz-line.solo { flex-direction: column; gap: 0; }
 .ft-fz-line.solo .ft-fz-lv { text-align: left; white-space: normal; }
-.ft-fz-media { display: flex; flex-direction: column; gap: 10px; }
+.ft-fz-media {
+  display: flex; flex-direction: column; gap: 8px;
+  flex: 1; min-height: 0;
+}
 .ft-fz-frame {
   border: 1px solid var(--ft-steel-300);
   background: var(--ft-white);
   display: flex; align-items: center; justify-content: center;
   overflow: hidden;
+  flex: 1 1 0;          /* divide o espaço vertical disponível entre desenho+foto */
+  min-height: 0;
+  padding: 4mm;         /* respira em volta da imagem */
 }
-.ft-fz-frame img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.ft-fz-frame img {
+  max-width: 100%; max-height: 100%;
+  width: auto; height: auto;
+  object-fit: contain;
+  display: block;
+}
 .ft-fz-ph {
   width: 100%; height: 100%;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
@@ -421,10 +461,12 @@
 .ft-fz-ph svg { width: 28px; height: 28px; stroke: var(--ft-steel-300); }
 .ft-fz-ph span { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .ft-fz-footer {
-  margin: 18px -30px 0; padding: 9px 30px;
+  margin: 10px -10mm 0;
+  padding: 6px 10mm;
   border-top: 2px solid var(--ft-black);
   display: flex; align-items: center; justify-content: space-between;
   font-size: 9.5px; color: var(--ft-graphite);
+  flex-shrink: 0;
 }
 .ft-fz-footer .fb { font-weight: 800; text-transform: uppercase; letter-spacing: .02em; color: var(--ft-black); font-size: 11px; }
 .ft-fz-footer .fb span { color: var(--ft-yellow-700); }
@@ -567,14 +609,43 @@
 .ft-mini-btn--danger:hover { background: #fef2f2; }
 
 /* ============================================================
-   PRINT — escondido tudo menos a ficha
+   PRINT — exatamente 1 página, sem brancos antes/depois.
+   `@page` é injetado em runtime (landscape OU portrait) pelo botão
+   "Imprimir / Salvar PDF", baseado no aspect da imagem.
+   Este bloco é o fallback (caso a injeção falhe) + regras estruturais.
    ============================================================ */
 @media print {
-  @page { size: A4 landscape; margin: 9mm; }
-  body * { visibility: hidden; }
-  .ft-ficha-overlay, .ft-ficha-overlay * { visibility: visible; }
-  .ft-ficha-overlay { position: static !important; background: #fff !important; display: block !important; }
+  @page { margin: 0; }
+  html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; }
+  /* display:none é crítico — visibility:hidden mantinha o espaço do app,
+     empurrava a ficha pra baixo e gerava página em branco antes. */
+  body > *:not(.ft-ficha-overlay) { display: none !important; }
+  .ft-ficha-overlay {
+    position: static !important;
+    inset: auto !important;
+    width: auto !important; height: auto !important;
+    background: #fff !important;
+    display: block !important;
+    padding: 0 !important;
+  }
   .ft-fo-bar { display: none !important; }
-  .ft-fo-scroll { overflow: visible !important; padding: 0 !important; display: block !important; }
-  .ft-fo-scroll .ft-ficha { box-shadow: none !important; width: 100% !important; min-height: 0 !important; padding: 0 !important; }
+  .ft-fo-scroll {
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: block !important;
+    background: #fff !important;
+  }
+  .ft-fo-scroll .ft-ficha {
+    box-shadow: none !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+    /* mantém as dimensões em mm — encaixa exatamente em A4 landscape/portrait
+       conforme o @page injetado */
+    page-break-after: avoid !important;
+    page-break-inside: avoid !important;
+    break-after: avoid !important;
+    break-inside: avoid !important;
+  }
+  .ft-fz-grp { break-inside: avoid !important; page-break-inside: avoid !important; }
 }

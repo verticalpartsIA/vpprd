@@ -390,9 +390,9 @@
 }
 .ft-fz-ident .it { display: flex; align-items: baseline; gap: 6px; }
 .ft-fz-ident .k {
-  font-size: 9.5px; font-weight: 700;
+  font-size: 9.5px; font-weight: 900;          /* negrito forte */
   letter-spacing: .12em; text-transform: uppercase;
-  color: var(--ft-steel);
+  color: var(--ft-black);                      /* preto pra contraste */
 }
 .ft-fz-ident .v {
   font-family: 'Courier New', monospace;
@@ -405,9 +405,9 @@
 }
 .ft-fz-descterm { margin-bottom: 14px; }
 .ft-fz-dt-k {
-  display: block; font-size: 9.5px; font-weight: 700;
+  display: block; font-size: 9.5px; font-weight: 900;   /* negrito forte */
   letter-spacing: .12em; text-transform: uppercase;
-  color: var(--ft-steel); margin-bottom: 3px;
+  color: var(--ft-black); margin-bottom: 3px;            /* preto pra contraste */
 }
 .ft-fz-descterm p { margin: 0; font-size: 11.5px; line-height: 1.5; color: var(--ft-fg1); }
 .ft-fz-specs {

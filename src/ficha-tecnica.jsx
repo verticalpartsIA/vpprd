@@ -492,26 +492,41 @@ function FtGenerator({ initial, onSaved, onCancel }) {
             <span>Ficha Técnica — {state.identificacao.nomeProduto}</span>
             <div className="ft-fo-actions">
               <button className="ft-btn primary" onClick={async () => {
-                // SALVAR PDF DIRETO — gera o arquivo sem caixa de impressão.
-                // html2pdf renderiza o nó como canvas e empacota em PDF A4.
-                if (!window.html2pdf) { alert('Biblioteca PDF ainda carregando…'); return; }
+                // SALVAR PDF — html2canvas + jsPDF direto, controle total.
+                // 1) html2canvas renderiza a ficha em alta resolução
+                // 2) jsPDF cria UMA página A4 (landscape ou portrait)
+                // 3) addImage ocupa 100% da página — 1 página garantida, sem branca extra
+                if (!window.html2canvas || !window.jspdf) {
+                  alert('Biblioteca PDF ainda carregando…'); return;
+                }
                 const fichaEl = document.querySelector('.ft-ficha-overlay .ft-ficha');
                 if (!fichaEl) return;
                 const ori = fichaEl.getAttribute('data-orientation') || 'landscape';
                 const safeName = (state.identificacao.nomeProduto || 'ficha-tecnica')
                   .normalize('NFD').replace(/[̀-ͯ]/g, '')
                   .replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '').toLowerCase();
-                const opt = {
-                  margin: 0,
-                  filename: `Ficha-${safeName}.pdf`,
-                  image: { type: 'jpeg', quality: 0.97 },
-                  html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false },
-                  jsPDF: { unit: 'mm', format: 'a4', orientation: ori, compress: true }
-                };
                 try {
-                  await window.html2pdf().set(opt).from(fichaEl).save();
+                  const canvas = await window.html2canvas(fichaEl, {
+                    scale: 2,
+                    useCORS: true,
+                    backgroundColor: '#ffffff',
+                    logging: false,
+                  });
+                  const imgData = canvas.toDataURL('image/jpeg', 0.97);
+                  const { jsPDF } = window.jspdf;
+                  const pdf = new jsPDF({
+                    unit: 'mm',
+                    format: 'a4',
+                    orientation: ori,
+                    compress: true,
+                  });
+                  const pw = pdf.internal.pageSize.getWidth();
+                  const ph = pdf.internal.pageSize.getHeight();
+                  // Imagem ocupa a página inteira — sem páginas em branco
+                  pdf.addImage(imgData, 'JPEG', 0, 0, pw, ph, undefined, 'FAST');
+                  pdf.save(`Ficha-${safeName}.pdf`);
                 } catch (err) {
-                  console.error('html2pdf error', err);
+                  console.error('PDF error', err);
                   alert('Erro ao gerar PDF: ' + (err.message || err));
                 }
               }}>

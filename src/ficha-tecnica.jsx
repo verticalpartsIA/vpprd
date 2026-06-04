@@ -413,12 +413,26 @@ function FtGenerator({ initial, onSaved, onCancel }) {
   });
   const setValue = (catId, key, v) => setState((s) => ({ ...s, cats: s.cats.map((c) => c.id !== catId ? c : { ...c, campos: c.campos.map((fld) => fld.k !== key ? fld : { ...fld, valor: v }) }) }));
   const removeField = (catId, key) => setState((s) => ({ ...s, cats: s.cats.map((c) => c.id !== catId ? c : { ...c, campos: c.campos.map((fld) => fld.k !== key ? fld : { ...fld, ativo: false }) }) }));
-  const addField = (catId, def) => setState((s) => {
-    const ord = window.FT.nextOrdem(s.cats);
-    const novo = { k: window.FT.slug(def.nome), nome: def.nome, unidade: def.unidade || '', tipo: def.tipo || 'number', valor: def.valor || '', ativo: true, ordem: ord, custom: true };
-    return { ...s, cats: s.cats.map((c) => c.id !== catId ? c : { ...c, campos: [...c.campos, novo] }) };
-  });
-  const addCategory = (nome) => { const id = window.FT.slug(nome); setState((s) => ({ ...s, cats: [...s.cats, { id, nome, icon: 'folder', custom: true, campos: [] }] })); setModal(null); };
+  const addField = (catId, def) => {
+    setState((s) => {
+      const ord = window.FT.nextOrdem(s.cats);
+      const novo = { k: window.FT.slug(def.nome), nome: def.nome, unidade: def.unidade || '', tipo: def.tipo || 'number', valor: def.valor || '', ativo: true, ordem: ord, custom: true };
+      return { ...s, cats: s.cats.map((c) => c.id !== catId ? c : { ...c, campos: [...c.campos, novo] }) };
+    });
+    // Persiste o campo na biblioteca (assíncrono, não bloqueia UI)
+    if (window.FTStore && window.FTStore.saveFieldToLibrary) {
+      window.FTStore.saveFieldToLibrary(catId, def).catch((e) => console.warn('saveField bg', e));
+    }
+  };
+  const addCategory = (nome) => {
+    const id = window.FT.slug(nome);
+    setState((s) => ({ ...s, cats: [...s.cats, { id, nome, icon: 'folder', custom: true, campos: [] }] }));
+    setModal(null);
+    // Persiste a categoria na biblioteca
+    if (window.FTStore && window.FTStore.saveCategoryToLibrary) {
+      window.FTStore.saveCategoryToLibrary({ id, nome, icon: 'folder' }).catch((e) => console.warn('saveCat bg', e));
+    }
+  };
   const onMedia = (slot, e) => {
     if (e === null) { setState((s) => ({ ...s, midia: { ...s.midia, [slot]: null } })); return; }
     const file = e.target.files && e.target.files[0]; if (!file) return;
@@ -650,6 +664,26 @@ function FtDashboard({ onNew, onOpen }) {
 function FichaTecnicaPage() {
   const [view, setView] = _ftUS('painel'); // painel | nova
   const [initial, setInitial] = _ftUS(null);
+  const [libReady, setLibReady] = _ftUS(false);
+
+  /* Carrega a biblioteca persistente (categorias + campos customizados)
+     no boot da página. Toda ficha criada depois disso vê os extras
+     já mesclados com as 9 categorias pré-prontas. */
+  _ftUE(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const extras = await window.FTStore.loadLibrary();
+        if (!alive) return;
+        window.FT.setLibraryExtras(extras);
+      } catch (e) {
+        console.warn('[FTPage] loadLibrary failed', e);
+      } finally {
+        if (alive) setLibReady(true);
+      }
+    })();
+    return () => { alive = false; };
+  }, []);
 
   const handleOpen = (ficha) => {
     setInitial({

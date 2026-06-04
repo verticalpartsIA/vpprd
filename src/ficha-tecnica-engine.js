@@ -124,11 +124,43 @@
 
   function hoje() { return new Date().toLocaleDateString('pt-BR'); }
 
+  /* Cache da biblioteca persistente (carregada via FTStore.loadLibrary).
+     Estrutura: { cats: [{id, nome, icon}], campos: [{cat_id, k, nome, unidade, tipo}] } */
+  let LIB_EXTRAS = { cats: [], campos: [] };
+
+  function setLibraryExtras(extras) {
+    LIB_EXTRAS = {
+      cats: (extras && extras.cats) || [],
+      campos: (extras && extras.campos) || [],
+    };
+  }
+
   function freshCats() {
-    return LIB.map((c) => ({
+    /* Começa com as 9 categorias pré-prontas */
+    const cats = LIB.map((c) => ({
       id: c.id, nome: c.nome, icon: c.icon, custom: false,
       campos: c.campos.map((fld) => ({ ...fld, ativo: false, valor: '', ordem: 0 })),
     }));
+    /* Adiciona categorias customizadas da biblioteca */
+    LIB_EXTRAS.cats.forEach((cat) => {
+      if (cats.find((x) => x.id === cat.id)) return;
+      cats.push({
+        id: cat.id, nome: cat.nome, icon: cat.icon || 'folder',
+        custom: true, campos: [],
+      });
+    });
+    /* Adiciona campos customizados da biblioteca em suas categorias */
+    LIB_EXTRAS.campos.forEach((fld) => {
+      const cat = cats.find((c) => c.id === fld.cat_id);
+      if (!cat) return;
+      if (cat.campos.find((x) => x.k === fld.k)) return;
+      cat.campos.push({
+        k: fld.k, nome: fld.nome,
+        unidade: fld.unidade || '', tipo: fld.tipo || 'number',
+        ativo: false, valor: '', ordem: 0, custom: true,
+      });
+    });
+    return cats;
   }
   function freshState() {
     return {
@@ -191,5 +223,6 @@
     UNIDADES, LIB, TEMPLATES,
     slug, hoje, freshCats, freshState,
     compile, aplicarTemplate, nextOrdem, podeGerar,
+    setLibraryExtras,
   };
 }());

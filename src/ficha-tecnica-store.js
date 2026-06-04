@@ -177,9 +177,55 @@
     await c.from('fichas_tecnicas').delete().eq('id', id);
   }
 
+  /* ============================================================
+     Biblioteca persistente (categorias + campos customizados).
+     Quando o usuário cria um campo/categoria personalizado em qualquer
+     ficha, ele entra na biblioteca e aparece na sidebar de TODAS as
+     fichas futuras (mesclado com as 9 categorias pré-prontas).
+     ============================================================ */
+  async function loadLibrary() {
+    const c = sb(); if (!c) return { cats: [], campos: [] };
+    const [catsR, camposR] = await Promise.all([
+      c.from('fichas_lib_categorias').select('*').order('criado_em', { ascending: true }),
+      c.from('fichas_lib_campos').select('*').order('criado_em', { ascending: true }),
+    ]);
+    return { cats: catsR.data || [], campos: camposR.data || [] };
+  }
+
+  async function saveCategoryToLibrary(cat) {
+    const c = sb(); if (!c || !cat || !cat.id) return null;
+    const row = { id: cat.id, nome: cat.nome, icon: cat.icon || 'folder' };
+    const { error } = await c.from('fichas_lib_categorias').upsert(row, { onConflict: 'id' });
+    if (error) console.warn('[FTStore] saveCategoryToLibrary error', error);
+    return row;
+  }
+
+  /* Slug estável (sem sufixo aleatório) pra biblioteca — diferente do
+     slug local que tem random suffix. Aqui é (cat_id, k) único. */
+  function libFieldKey(nome) {
+    return 'fl_' + String(nome).toLowerCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 32);
+  }
+
+  async function saveFieldToLibrary(catId, def) {
+    const c = sb(); if (!c || !catId || !def || !def.nome) return null;
+    const row = {
+      cat_id: catId,
+      k: libFieldKey(def.nome),
+      nome: def.nome,
+      unidade: def.unidade || '',
+      tipo: def.tipo || 'number',
+    };
+    const { error } = await c.from('fichas_lib_campos').upsert(row, { onConflict: 'cat_id,k' });
+    if (error) console.warn('[FTStore] saveFieldToLibrary error', error);
+    return row;
+  }
+
   window.FTStore = {
     uuid, fmtDateTime, relative,
     listAll, getById, createDraft, update, remove,
     syncCatalogoProduto, extractNCM, buildAtributos,
+    loadLibrary, saveCategoryToLibrary, saveFieldToLibrary, libFieldKey,
   };
 }());

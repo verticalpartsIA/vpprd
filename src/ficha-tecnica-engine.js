@@ -162,9 +162,24 @@
     });
     return cats;
   }
+  function genId() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+      const r = Math.random()*16|0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+
   function freshState() {
     return {
+      __id: genId(),    // estável desde o mount — usado como pasta no Storage e id na DB
       identificacao: { nomeProduto: '', descricaoComercial: '', descricaoTecnica: '', categoriaProduto: '', sku: '', codigoProduto: '', partNumber: '' },
+      /* NCM/DUIMP — campos novos do copiloto (inputs do humano) */
+      insumo: '', funcao_aplicacao: '', eh_parte_de: '', forma_estado: '',
+      /* NCM/DUIMP — decisão limpa devolvida pela IA */
+      ncm_recomendado: '', ncm_descricao: '', descricao_duimp: '',
+      /* Defesa — só guardada em memória durante o wizard, persiste na tabela relatorio */
+      __defesa: null,
       cats: freshCats(),
       midia: { desenho: null, foto: null },
     };

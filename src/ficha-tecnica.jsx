@@ -47,10 +47,28 @@ function FtFichaGrupo({ g }) {
     </div>
   );
 }
+/* Hook que resolve uma referência de imagem (path do Storage OU dataURL legado)
+   em URL utilizável pelo <img>. Re-resolve quando a referência muda. */
+function useImgURL(src) {
+  const [url, setUrl] = _ftUS(null);
+  _ftUE(() => {
+    if (!src) { setUrl(null); return; }
+    let alive = true;
+    if (window.FTImg && window.FTImg.resolveURL) {
+      window.FTImg.resolveURL(src).then((u) => { if (alive) setUrl(u); });
+    } else {
+      setUrl(src);
+    }
+    return () => { alive = false; };
+  }, [src]);
+  return url;
+}
+
 function FtFichaFrame({ src, legenda }) {
+  const url = useImgURL(src);
   return (
     <div className="ft-fz-frame">
-      {src ? <img src={src} alt={legenda}/> : (
+      {url ? <img src={url} alt={legenda} crossOrigin="anonymous"/> : (
         <div className="ft-fz-ph">
           <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="1"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
           <span>{legenda}</span>
@@ -62,20 +80,33 @@ function FtFichaFrame({ src, legenda }) {
 
 /* Mede aspect ratio da maior imagem (foto > desenho) pra decidir a orientação
    da página: portrait se h > w*1.15 (produto vertical tipo porta/totem),
-   senão landscape (widescreen, padrão da Vertical Parts) */
+   senão landscape (widescreen, padrão da Vertical Parts).
+   Resolve URL assinada quando midia é um path do Storage. */
 function useFichaOrientation(midia) {
   const [orientation, setOrientation] = _ftUS('landscape');
+  const ref = (midia && (midia.foto || midia.desenho)) || null;
   _ftUE(() => {
-    const src = (midia && (midia.foto || midia.desenho)) || null;
-    if (!src) { setOrientation('landscape'); return; }
-    const img = new Image();
-    img.onload = () => {
-      const r = img.naturalWidth / Math.max(1, img.naturalHeight);
-      setOrientation(r < 0.85 ? 'portrait' : 'landscape');
+    if (!ref) { setOrientation('landscape'); return; }
+    let alive = true;
+    const measure = (url) => {
+      if (!alive || !url) return;
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        if (!alive) return;
+        const r = img.naturalWidth / Math.max(1, img.naturalHeight);
+        setOrientation(r < 0.85 ? 'portrait' : 'landscape');
+      };
+      img.onerror = () => alive && setOrientation('landscape');
+      img.src = url;
     };
-    img.onerror = () => setOrientation('landscape');
-    img.src = src;
-  }, [midia && midia.foto, midia && midia.desenho]);
+    if (window.FTImg && window.FTImg.resolveURL) {
+      window.FTImg.resolveURL(ref).then(measure);
+    } else {
+      measure(ref);
+    }
+    return () => { alive = false; };
+  }, [ref]);
   return orientation;
 }
 
@@ -217,14 +248,15 @@ function FtValueInput({ fld, onChange }) {
   );
 }
 
-function FtMediaSlot({ label, src, onPick, onClear }) {
+function FtMediaSlot({ label, src, uploading, onPick, onClear }) {
   const id = 'ft-media-' + label.replace(/\s/g, '');
+  const url = useImgURL(src);
   return (
     <div className="ft-media-slot">
-      <span className="ft-media-lbl">{label}</span>
-      {src ? (
+      <span className="ft-media-lbl">{label}{uploading && <em style={{ color:'#E89A1F', marginLeft:8, fontWeight:600 }}>enviando…</em>}</span>
+      {url || uploading ? (
         <div className="ft-media-has">
-          <img src={src} alt={label}/>
+          {url ? <img src={url} alt={label} crossOrigin="anonymous"/> : <div style={{ color:'#888', fontSize:11 }}>preparando…</div>}
           <button className="ft-media-rm" onClick={onClear}>Remover</button>
         </div>
       ) : (
@@ -238,7 +270,7 @@ function FtMediaSlot({ label, src, onPick, onClear }) {
   );
 }
 
-function FtEditor({ state, onIdent, onValue, onRemove, onMedia, onAddField }) {
+function FtEditor({ state, onIdent, onValue, onRemove, onMedia, onAddField, onNCMField, uploadingSlot }) {
   const grupos = state.cats
     .map((c) => ({ c, ativos: c.campos.filter((fld) => fld.ativo).sort((a, b) => (a.ordem || 0) - (b.ordem || 0)) }))
     .filter((g) => g.ativos.length);
@@ -267,6 +299,44 @@ function FtEditor({ state, onIdent, onValue, onRemove, onMedia, onAddField }) {
             <input className="ft-mono" value={state.identificacao.codigoProduto || ''} onChange={(e) => onIdent('codigoProduto', e.target.value)} placeholder="ex.: VPMP-242"/>
           </label>
         </div>
+      </section>
+
+      {/* ============================================================
+          Classificação fiscal — alimenta o Copiloto NCM/DUIMP
+          ============================================================ */}
+      <section className="ft-card">
+        <div className="ft-card-head">
+          <span className="ft-bar" style={{ background: '#2563eb' }}></span>
+          <h3>Classificação fiscal · NCM/DUIMP</h3>
+          <span style={{ marginLeft: 'auto', fontSize: 10.5, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: '#2563eb' }}>🤖 Copiloto IA</span>
+        </div>
+        <p style={{ fontSize: 12, color: '#666', margin: '0 0 12px', lineHeight: 1.5 }}>
+          Mínimo essencial: <b>insumo</b> + <b>função/aplicação</b>. O resto a IA pergunta sozinha.
+        </p>
+        <div className="ft-grid">
+          <label className="ft-f"><span>Insumo · matéria-prima predominante</span>
+            <input value={state.insumo || ''} onChange={(e) => onNCMField('insumo', e.target.value)} placeholder="ex.: aço inox, vidro, borracha, polímero"/>
+          </label>
+          <label className="ft-f"><span>É parte de?</span>
+            <input value={state.eh_parte_de || ''} onChange={(e) => onNCMField('eh_parte_de', e.target.value)} placeholder="ex.: elevador, esteira, escada"/>
+          </label>
+          <label className="ft-f full"><span>Função / aplicação</span>
+            <input value={state.funcao_aplicacao || ''} onChange={(e) => onNCMField('funcao_aplicacao', e.target.value)} placeholder="ex.: comando de chamada em cabina de elevador"/>
+          </label>
+          <label className="ft-f"><span>Forma / estado</span>
+            <select className="ft-input" value={state.forma_estado || ''} onChange={(e) => onNCMField('forma_estado', e.target.value)} style={{ padding: 8, fontSize: 13, fontFamily: 'inherit', border: '1px solid #C9CED6', borderRadius: 3 }}>
+              <option value="">— escolha —</option>
+              <option value="materia_prima">Matéria-prima (rolo / chapa / perfil)</option>
+              <option value="peca_acabada">Peça acabada / moldada</option>
+            </select>
+          </label>
+        </div>
+        {state.ncm_recomendado && (
+          <div style={{ marginTop: 14, padding: '10px 12px', background: '#fffbeb', border: '1px solid #FBB039', borderRadius: 4, fontSize: 12 }}>
+            <b>NCM atual (sugerido pela IA):</b> <span style={{ fontFamily: 'Courier New, monospace', fontWeight: 700 }}>{state.ncm_recomendado}</span>
+            {state.ncm_descricao && <span style={{ color: '#666', marginLeft: 8 }}>— {state.ncm_descricao}</span>}
+          </div>
+        )}
       </section>
 
       {grupos.length === 0 && (
@@ -298,8 +368,8 @@ function FtEditor({ state, onIdent, onValue, onRemove, onMedia, onAddField }) {
       <section className="ft-card">
         <div className="ft-card-head"><span className="ft-bar"></span><h3>Imagens & Desenho</h3></div>
         <div className="ft-media">
-          <FtMediaSlot label="Desenho técnico" src={state.midia.desenho} onPick={(e) => onMedia('desenho', e)} onClear={() => onMedia('desenho', null)}/>
-          <FtMediaSlot label="Foto do produto"  src={state.midia.foto}    onPick={(e) => onMedia('foto', e)}    onClear={() => onMedia('foto', null)}/>
+          <FtMediaSlot label="Desenho técnico" src={state.midia.desenho} uploading={uploadingSlot === 'desenho'} onPick={(e) => onMedia('desenho', e)} onClear={() => onMedia('desenho', null)}/>
+          <FtMediaSlot label="Foto do produto"  src={state.midia.foto}    uploading={uploadingSlot === 'foto'}    onPick={(e) => onMedia('foto', e)}    onClear={() => onMedia('foto', null)}/>
         </div>
       </section>
     </div>
@@ -433,10 +503,44 @@ function FtGenerator({ initial, onSaved, onCancel }) {
       window.FTStore.saveCategoryToLibrary({ id, nome, icon: 'folder' }).catch((e) => console.warn('saveCat bg', e));
     }
   };
-  const onMedia = (slot, e) => {
-    if (e === null) { setState((s) => ({ ...s, midia: { ...s.midia, [slot]: null } })); return; }
+  const [uploadingSlot, setUploadingSlot] = _ftUS(null);
+
+  const onMedia = async (slot, e) => {
+    if (e === null) {
+      const old = state.midia[slot];
+      setState((s) => ({ ...s, midia: { ...s.midia, [slot]: null } }));
+      // Apaga do Storage se for path (não dataURL legado)
+      if (window.FTImg && window.FTImg.isStoragePath(old)) {
+        window.FTImg.remove(old).catch((err) => console.warn('remove falhou', err));
+      }
+      return;
+    }
     const file = e.target.files && e.target.files[0]; if (!file) return;
-    const r = new FileReader(); r.onload = () => setState((s) => ({ ...s, midia: { ...s.midia, [slot]: r.result } })); r.readAsDataURL(file);
+    // Lê como dataURL pra preview otimista enquanto sobe
+    const dataURL = await new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result);
+      r.onerror = rej;
+      r.readAsDataURL(file);
+    });
+    setState((s) => ({ ...s, midia: { ...s.midia, [slot]: dataURL } }));
+    setUploadingSlot(slot);
+    try {
+      if (!window.FTImg) throw new Error('Storage helpers não carregaram');
+      const { path } = await window.FTImg.compressAndUpload(dataURL, {
+        fichaId: state.__id,
+        tipo: slot,
+        nomeProduto: state.identificacao.nomeProduto,
+      });
+      // Sucesso: substitui o dataURL pelo path (persiste no Storage)
+      setState((s) => ({ ...s, midia: { ...s.midia, [slot]: path } }));
+    } catch (err) {
+      console.error('upload err', err);
+      // Mantém dataURL como fallback (UX não trava); usuário pode tentar de novo
+      alert('Erro ao salvar no Storage: ' + (err.message || err) + '\n(imagem fica em memória até salvar a ficha)');
+    } finally {
+      setUploadingSlot(null);
+    }
   };
   const aplicarTemplate = (tp) => setState((s) => window.FT.aplicarTemplate(s, tp));
 
@@ -481,7 +585,9 @@ function FtGenerator({ initial, onSaved, onCancel }) {
           onTemplate={aplicarTemplate}/>
         <div className="ft-work">
           <FtEditor state={state} onIdent={setIdent} onValue={setValue} onRemove={removeField}
-            onMedia={onMedia} onAddField={(catId) => setModal({ tipo: 'field', catId })}/>
+            onMedia={onMedia} onAddField={(catId) => setModal({ tipo: 'field', catId })}
+            onNCMField={(k, v) => setState((s) => ({ ...s, [k]: v }))}
+            uploadingSlot={uploadingSlot}/>
         </div>
         <div className="ft-previewcol">
           <div className="ft-preview-head"><span>Pré-visualização</span><em>compila só o preenchido</em></div>
@@ -498,6 +604,12 @@ function FtGenerator({ initial, onSaved, onCancel }) {
       )}
       {modal && modal.tipo === 'cat' && (
         <FtAddCategoryModal onAdd={addCategory} onClose={() => setModal(null)}/>
+      )}
+
+      {/* Copiloto NCM/DUIMP — flutuante, portado pro body pra não ser cortado */}
+      {window.FtCopiloto && ReactDOM.createPortal(
+        <window.FtCopiloto state={state} setState={setState}/>,
+        document.body
       )}
 
       {overlay && ReactDOM.createPortal(

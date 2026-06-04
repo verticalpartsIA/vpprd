@@ -115,7 +115,7 @@
 
     const ident = state.identificacao || {};
     const rec = {
-      id: uuid(),
+      id: state.__id || uuid(),                 // usa o id estável gerado no defaultState
       numero_documento: num.numero_documento,
       seq_mes: num.seq_mes,
       ano_mes: num.ano_mes,
@@ -129,6 +129,15 @@
       identificacao: ident,
       cats: state.cats,
       midia: state.midia || {},
+      /* NCM/DUIMP — inputs novos do copiloto */
+      insumo: state.insumo || null,
+      funcao_aplicacao: state.funcao_aplicacao || null,
+      eh_parte_de: state.eh_parte_de || null,
+      forma_estado: state.forma_estado || null,
+      /* NCM/DUIMP — decisão limpa devolvida pela IA */
+      ncm_recomendado: state.ncm_recomendado || null,
+      ncm_descricao: state.ncm_descricao || null,
+      descricao_duimp: state.descricao_duimp || null,
       criado_por: opts.criadoPor || null,
       criado_em: new Date().toISOString(),
       atualizado_em: new Date().toISOString(),
@@ -160,6 +169,13 @@
       identificacao: ident,
       cats: state.cats,
       midia: state.midia || {},
+      insumo: state.insumo || null,
+      funcao_aplicacao: state.funcao_aplicacao || null,
+      eh_parte_de: state.eh_parte_de || null,
+      forma_estado: state.forma_estado || null,
+      ncm_recomendado: state.ncm_recomendado || null,
+      ncm_descricao: state.ncm_descricao || null,
+      descricao_duimp: state.descricao_duimp || null,
       atualizado_em: new Date().toISOString(),
     };
     await c.from('fichas_tecnicas').update(patch).eq('id', id);

@@ -107,13 +107,6 @@
         { cat: 'dimensoes', nome: 'Comprimento', unidade: 'm', valor: '' },
       ],
     },
-    {
-      nome: 'Caibro de Madeira', produto: 'Caibro',
-      campos: [
-        { cat: 'dimensoes', nome: 'Comprimento', unidade: 'mm', valor: '850' },
-        { cat: 'dimensoes', nome: 'Bitola', unidade: 'mm', valor: '90x90' },
-      ],
-    },
   ];
 
   function slug(s) {

@@ -287,7 +287,7 @@ function FtEditor({ state, onIdent, onValue, onRemove, onMedia, onAddField, onNC
             <textarea rows="2" value={state.identificacao.descricaoTecnica || ''} onChange={(e) => onIdent('descricaoTecnica', e.target.value)} placeholder="especificação técnica detalhada do produto…"></textarea>
           </label>
           <label className="ft-f"><span>Categoria / Segmento</span>
-            <input value={state.identificacao.categoriaProduto} onChange={(e) => onIdent('categoriaProduto', e.target.value)} placeholder="Automotivo, Madeira, Elétrico…"/>
+            <input value={state.identificacao.categoriaProduto} onChange={(e) => onIdent('categoriaProduto', e.target.value)} placeholder="Elevador, Escada rolante, Esteira…"/>
           </label>
           <label className="ft-f"><span>SKU</span>
             <input className="ft-mono" value={state.identificacao.sku} onChange={(e) => onIdent('sku', e.target.value)} placeholder="opcional"/>
@@ -404,7 +404,7 @@ function FtAddFieldModal({ catNome, onAdd, onClose }) {
     <FtModalShell titulo={'Adicionar campo · ' + catNome} onClose={onClose}>
       <div className="ft-gm-body">
         <label className="ft-gm-field"><span>Nome do campo <i>*</i></span>
-          <input autoFocus value={nome} onChange={(e) => setNome(e.target.value)} placeholder="ex.: Bitola, Tipo de Madeira"/>
+          <input autoFocus value={nome} onChange={(e) => setNome(e.target.value)} placeholder="ex.: Bitola, Tensão nominal"/>
         </label>
         <div className="ft-gm-row">
           <label className="ft-gm-field"><span>Tipo de entrada</span>
@@ -446,7 +446,7 @@ function FtAddCategoryModal({ onAdd, onClose }) {
     <FtModalShell titulo="Nova categoria" onClose={onClose}>
       <div className="ft-gm-body">
         <label className="ft-gm-field"><span>Nome da categoria <i>*</i></span>
-          <input autoFocus value={nome} onChange={(e) => setNome(e.target.value)} placeholder="ex.: Especificações de Madeira"/>
+          <input autoFocus value={nome} onChange={(e) => setNome(e.target.value)} placeholder="ex.: Compatível com Fabricante"/>
         </label>
         <p className="ft-gm-hint">A categoria aparece na barra lateral; depois você adiciona campos a ela.</p>
       </div>

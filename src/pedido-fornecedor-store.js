@@ -186,11 +186,16 @@
       status: 'enviado', channel: channel || null, recipient: recipient || null,
       sent_at: new Date().toISOString(),
     }).eq('id', id);
+    if (window.VPLog) window.VPLog.registrar({
+      modulo: 'Pedido a Fornecedor', acao: 'enviou ao fornecedor',
+      alvo_id: id, detalhe: { canal: channel, para: recipient && recipient.nome },
+    });
   }
 
   async function excluir(id) {
     const c = sb(); if (!c) return;
     await c.from('pedidos_fornecedor').delete().eq('id', id);
+    if (window.VPLog) window.VPLog.registrar({ modulo: 'Pedido a Fornecedor', acao: 'excluiu a cotação', alvo_id: id });
   }
 
   /* ---------- Portal público (página /cotacao/:token) ---------- */
@@ -232,6 +237,12 @@
     await c.from('pedidos_fornecedor').update(patch).eq('token', token);
     const updated = { ...cur, ...patch };
     await pushNotification(updated, 'respondido', { ip });
+    if (window.VPLog) window.VPLog.registrar({
+      ator_nome: (cur.fornecedor && cur.fornecedor.nome) || 'Fornecedor', ator_setor: 'fornecedor',
+      modulo: 'Pedido a Fornecedor', acao: 'respondeu a cotação',
+      alvo: cur.numero_documento, alvo_id: cur.id,
+      detalhe: { moeda: resposta.moeda, ip },
+    });
     return updated;
   }
 
@@ -270,6 +281,11 @@
       status: 'rascunho',
     };
     pedido.doc = window.PFEngine.buildDoc(pedido);
+    if (window.VPLog) window.VPLog.registrar({
+      modulo: 'Pedido a Fornecedor', acao: 'gerou a cotação',
+      alvo: pedido.numero_documento, alvo_id: pedido.id,
+      detalhe: { itens: itens.length, fornecedor: (pedido.fornecedor || {}).nome, idioma: pedido.idioma },
+    });
     return pedido;
   }
 

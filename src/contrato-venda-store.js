@@ -100,6 +100,24 @@
 
   /* ---------- Notificações em alertas (Geral › Notificações) ---------- */
   async function pushNotification(rec, newStatus, meta) {
+    /* Espelha no registro central (Admin > Logs) */
+    if (window.VPLog) {
+      const contraparte = (rec.recipient && rec.recipient.name) || rec.responsavel_nome || rec.comprador_razao_social || 'Contraparte';
+      const MAP = {
+        enviado:     { acao: 'enviou p/ assinatura' },
+        visualizado: { acao: 'contraparte visualizou', ator: contraparte, setor: 'externo' },
+        assinado:    { acao: 'contrato assinado', ator: (meta && meta.signerName) || contraparte, setor: 'externo' },
+        recusado:    { acao: 'assinatura recusada', ator: contraparte, setor: 'externo' },
+        expirado:    { acao: 'link de assinatura expirou', ator: 'Sistema', setor: 'sistema' },
+      };
+      const m = MAP[newStatus];
+      if (m) window.VPLog.registrar({
+        ator_nome: m.ator, ator_setor: m.setor,
+        modulo: 'Contrato Venda', acao: m.acao,
+        alvo: rec.numero_documento, alvo_id: rec.id,
+        detalhe: meta && meta.channel ? { canal: meta.channel } : null,
+      });
+    }
     try {
       const num = rec.numero_documento;
       const titularNome = (rec.recipient && rec.recipient.name) || rec.responsavel_nome || rec.comprador_razao_social || '';
@@ -199,6 +217,7 @@
 
     const { error } = await c.from('contratos_venda_equipamentos').insert(rec);
     if (error) throw error;
+    if (window.VPLog) window.VPLog.registrar({ modulo: 'Contrato Venda', acao: 'criou o contrato', alvo: rec.numero_documento, alvo_id: rec.id, detalhe: { comprador: rec.comprador_razao_social } });
     return rec;
   }
 

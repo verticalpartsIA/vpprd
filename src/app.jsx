@@ -34,6 +34,7 @@ const ROUTE_TITLE = {
   financeiro: "Gatilhos & Prazo Reverso",
   comissoes: "Comissões",
   notificacoes: "Notificações",
+  logs: "Logs de Atividade",
   configuracoes: "Configurações",
 };
 
@@ -142,6 +143,7 @@ function App() {
     precificacao: ["financeiro", "admin"],
     financeiro: ["financeiro", "admin"],
     comissoes: ["financeiro", "admin"],
+    logs: ["admin"],
     configuracoes: ["admin"],
   };
   React.useEffect(() => {
@@ -182,6 +184,7 @@ function App() {
       case "financeiro": return <FinanceiroPage/>;
       case "comissoes": return <ComissoesPage/>;
       case "notificacoes": return <NotificacoesPage setRoute={setRoute}/>;
+      case "logs": return <LogsAdminPage/>;
       case "configuracoes": return <ConfiguracoesPage/>;
       default: return <Dashboard role={role} setRoute={setRoute}/>;
     }

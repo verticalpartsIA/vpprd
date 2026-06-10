@@ -1,0 +1,69 @@
+/* ============================================================
+   vp-log.js — Registro central de atividades (auditoria global).
+   Toda ação relevante de qualquer módulo passa por aqui:
+   quem fez · o que fez · onde (módulo) · alvo · dia e hora.
+   Tabela vp_logs (append-only — RLS só INSERT+SELECT).
+   Carregar logo após supabase.js. window.VPLog.
+   ============================================================ */
+(function () {
+  'use strict';
+
+  function sb() { return (window.__VP_SB || {}).sb; }
+
+  /* Ator a partir do perfil ativo do app (role). Pode ser sobrescrito
+     por ev.ator_nome (ex.: fornecedor no portal público). */
+  function ator() {
+    let r = 'admin';
+    try { r = JSON.parse(localStorage.getItem('vpprd.role')) || 'admin'; } catch (e) {}
+    const nomes = { comercial: 'Comercial', engenharia: 'Engenharia', financeiro: 'Financeiro', importacao: 'Importação', admin: 'Admin' };
+    return { nome: nomes[r] || r, setor: r };
+  }
+
+  /* Registrar evento. Best-effort: nunca quebra o fluxo principal. */
+  async function registrar(ev) {
+    try {
+      const c = sb(); if (!c || !ev || !ev.acao) return;
+      const a = ator();
+      await c.from('vp_logs').insert({
+        ator_nome: ev.ator_nome || a.nome,
+        ator_setor: ev.ator_setor || a.setor,
+        modulo: ev.modulo || 'Sistema',
+        acao: ev.acao,
+        alvo: ev.alvo || null,
+        alvo_id: ev.alvo_id != null ? String(ev.alvo_id) : null,
+        detalhe: ev.detalhe || null,
+      });
+    } catch (e) { console.warn('[VPLog] registrar falhou', e); }
+  }
+
+  /* Listar com filtros: { modulo, busca, de, ate, limit } */
+  async function listar(f) {
+    const c = sb(); if (!c) return [];
+    f = f || {};
+    let q = c.from('vp_logs').select('*').order('criado_em', { ascending: false }).limit(f.limit || 300);
+    if (f.modulo && f.modulo !== 'Todos') q = q.eq('modulo', f.modulo);
+    if (f.de) q = q.gte('criado_em', f.de);
+    if (f.ate) q = q.lte('criado_em', f.ate + 'T23:59:59');
+    if (f.busca) {
+      const s = f.busca.replace(/[%,()]/g, ' ').trim();
+      if (s) q = q.or(`ator_nome.ilike.%${s}%,acao.ilike.%${s}%,alvo.ilike.%${s}%`);
+    }
+    const { data, error } = await q;
+    if (error) { console.warn('[VPLog] listar falhou', error.message); return []; }
+    return data || [];
+  }
+
+  async function modulos() {
+    const c = sb(); if (!c) return [];
+    const { data } = await c.from('vp_logs').select('modulo').limit(1000);
+    return Array.from(new Set((data || []).map(r => r.modulo))).sort();
+  }
+
+  function fmtDateTime(ts) {
+    if (!ts) return '—';
+    const d = new Date(ts);
+    return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+
+  window.VPLog = { registrar, listar, modulos, ator, fmtDateTime };
+}());

@@ -446,6 +446,11 @@ function NcmCatalogoPage({ setRoute }) {
       }
       const { error } = await window.__VP_SB.sb.from("catalogo_produtos").delete().eq("id", row.id);
       if (error) return window.toast("Erro: " + error.message, "error");
+      if (window.VPLog) window.VPLog.registrar({
+        modulo: "Catálogo", acao: "excluiu o produto",
+        alvo: row.denominacao || row.codigo, alvo_id: row.id,
+        detalhe: { fichas_removidas: fichasVinc.length },
+      });
       window.toast(
         fichasVinc.length
           ? `Produto e ${fichasVinc.length === 1 ? 'ficha técnica vinculada removidos' : `${fichasVinc.length} fichas técnicas vinculadas removidas`}.`
@@ -456,6 +461,12 @@ function NcmCatalogoPage({ setRoute }) {
     } else {
       const { error } = await window.__VP_SB.sb.from("catalogo_produtos").update(patch).eq("id", row.id);
       if (error) return window.toast("Erro: " + error.message, "error");
+      if (window.VPLog) {
+        const acao = patch.situacao === "ativado" ? (patch.versao ? "reativou o produto" : "ativou o produto")
+          : patch.situacao === "desativado" ? "desativou o produto"
+          : patch.versao ? "gerou nova versão" : "atualizou o produto";
+        window.VPLog.registrar({ modulo: "Catálogo", acao, alvo: row.denominacao || row.codigo, alvo_id: row.id, detalhe: patch });
+      }
       window.toast("Produto atualizado.", "success");
     }
     reload();

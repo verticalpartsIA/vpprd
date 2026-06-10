@@ -107,6 +107,24 @@
 
   /* ---------- Notificação interna (Geral › Notificações) ---------- */
   async function pushNotification(rec, newStatus, meta) {
+    /* Espelha no registro central (Admin > Logs) */
+    if (window.VPLog) {
+      const contraparte = (rec.recipient && rec.recipient.name) || rec.responsavel_nome || rec.contratada_nome || 'Contraparte';
+      const MAP = {
+        enviado:     { acao: 'enviou p/ assinatura' },
+        visualizado: { acao: 'contraparte visualizou', ator: contraparte, setor: 'externo' },
+        assinado:    { acao: 'contrato assinado', ator: (meta && meta.signerName) || contraparte, setor: 'externo' },
+        recusado:    { acao: 'assinatura recusada', ator: contraparte, setor: 'externo' },
+        expirado:    { acao: 'link de assinatura expirou', ator: 'Sistema', setor: 'sistema' },
+      };
+      const m = MAP[newStatus];
+      if (m) window.VPLog.registrar({
+        ator_nome: m.ator, ator_setor: m.setor,
+        modulo: 'Contrato Instalador', acao: m.acao,
+        alvo: rec.numero_documento, alvo_id: rec.id,
+        detalhe: meta && meta.channel ? { canal: meta.channel } : null,
+      });
+    }
     try {
       const map = {
         enviado:     { level: 'info',    title: `Contrato instalador ${rec.numero_documento} enviado`, sub: `Para ${(rec.recipient && rec.recipient.name) || rec.responsavel_nome || ''} · canal ${meta && meta.channel ? (meta.channel === 'whatsapp' ? 'WhatsApp' : 'E-mail') : '—'}` },
@@ -222,6 +240,7 @@
 
     const { error } = await c.from('contratos_instalador').insert(_packToRow(rec));
     if (error) throw error;
+    if (window.VPLog) window.VPLog.registrar({ modulo: 'Contrato Instalador', acao: 'criou o contrato', alvo: rec.numero_documento, alvo_id: rec.id, detalhe: { contratada: rec.contratada_nome } });
     return rec;
   }
 

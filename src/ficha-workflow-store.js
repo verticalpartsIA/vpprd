@@ -55,6 +55,30 @@
     };
     const { error } = await c.from('fichas_historico').insert(row);
     if (error) console.warn('[FWFStore] historico falhou', error.message);
+    /* Espelha no registro central de atividades (tela Admin › Logs) */
+    if (window.VPLog) {
+      const modCatalogo = ['arquivou', 'desarquivou', 'publicou'];
+      const ACAO_TXT = {
+        criou: 'criou a ficha', editou: 'editou a ficha',
+        avancou: 'avançou a etapa', devolveu: 'devolveu a etapa',
+        revisao: 'solicitou revisão', revisao_ok: 'concluiu a revisão',
+        arquivou: 'arquivou o produto', desarquivou: 'desarquivou o produto',
+        publicou: 'publicou o produto', cliente_lead: 'atualizou dados do cliente',
+      };
+      const detalhe = { ...(ev.detalhe || {}) };
+      if (ev.de_etapa && ev.para_etapa && ev.de_etapa !== ev.para_etapa && window.FWF) {
+        detalhe.de = window.FWF.etapa(ev.de_etapa).label;
+        detalhe.para = window.FWF.etapa(ev.para_etapa).label;
+      }
+      window.VPLog.registrar({
+        ator_nome: ev.ator_nome, ator_setor: ev.ator_setor,
+        modulo: modCatalogo.includes(ev.acao) ? 'Catálogo' : 'Ficha Técnica',
+        acao: ACAO_TXT[ev.acao] || ev.acao,
+        alvo: ev.alvo || (ev.detalhe && (ev.detalhe.nome_produto || ev.detalhe.produto)) || null,
+        alvo_id: ev.ficha_id || ev.produto_id,
+        detalhe,
+      });
+    }
   }
 
   async function historico(fichaId, produtoId) {
@@ -109,7 +133,7 @@
     const { error } = await c.from('fichas_tecnicas').update(patch).eq('id', ficha.id);
     if (error) throw error;
     await registrar({
-      ficha_id: ficha.id, produto_id: ficha.produto_id,
+      ficha_id: ficha.id, produto_id: ficha.produto_id, alvo: ficha.numero_documento,
       ator_nome: ator.nome, ator_setor: ator.setor,
       acao: acao || 'avancou', de_etapa: deEtapa, para_etapa: paraEtapa,
       detalhe: detalhe || null,
@@ -126,7 +150,7 @@
       .update({ revisao, atualizado_em: new Date().toISOString() }).eq('id', ficha.id);
     if (error) throw error;
     await registrar({
-      ficha_id: ficha.id, produto_id: ficha.produto_id,
+      ficha_id: ficha.id, produto_id: ficha.produto_id, alvo: ficha.numero_documento,
       ator_nome: ator.nome, ator_setor: ator.setor,
       acao: 'revisao', de_etapa: ficha.etapa, para_etapa: ficha.etapa,
       detalhe: { motivo },
@@ -146,7 +170,7 @@
     const c = sb(); if (!c) return ficha;
     await c.from('fichas_tecnicas').update({ revisao: null, atualizado_em: new Date().toISOString() }).eq('id', ficha.id);
     await registrar({
-      ficha_id: ficha.id, produto_id: ficha.produto_id,
+      ficha_id: ficha.id, produto_id: ficha.produto_id, alvo: ficha.numero_documento,
       ator_nome: ator.nome, ator_setor: ator.setor,
       acao: 'revisao_ok', de_etapa: ficha.etapa, para_etapa: ficha.etapa,
       detalhe: { resolvida: true },
@@ -179,7 +203,7 @@
       .update({ cliente_lead, atualizado_em: new Date().toISOString() }).eq('id', ficha.id);
     if (error) throw error;
     await registrar({
-      ficha_id: ficha.id, produto_id: ficha.produto_id,
+      ficha_id: ficha.id, produto_id: ficha.produto_id, alvo: ficha.numero_documento,
       ator_nome: ator.nome, ator_setor: ator.setor,
       acao: 'cliente_lead', de_etapa: ficha.etapa, para_etapa: ficha.etapa,
       detalhe: { nome: cliente_lead.nome },

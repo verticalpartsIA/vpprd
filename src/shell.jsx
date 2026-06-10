@@ -42,6 +42,7 @@ const NAV_GROUPS = [
     { id: "comissoes", label: "Comissões", icon: "award", restrict: ["financeiro", "admin"] },
   ]},
   { label: "Admin", items: [
+    { id: "logs", label: "Logs de Atividade", icon: "history", restrict: ["admin"] },
     { id: "configuracoes", label: "Configurações", icon: "settings", restrict: ["admin"] },
   ]},
 ];
@@ -129,6 +130,7 @@ const BREADCRUMB_MAP = {
   databook:      { module: "Instalação & Entrega", page: "Data Book & Termo", icon: "fileSearch" },
   financeiro:    { module: "Financeiro", page: "Gatilhos & Prazo Reverso", icon: "dollar" },
   comissoes:     { module: "Financeiro", page: "Comissões", icon: "award" },
+  logs: { module: "Admin", page: "Logs de Atividade", icon: "history" },
   configuracoes: { module: "Admin", page: "Configurações", icon: "settings" },
 };
 

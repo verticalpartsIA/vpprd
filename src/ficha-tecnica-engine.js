@@ -366,9 +366,11 @@
     const id = state.identificacao || {};
     const faltas = [];
 
+    /* Família VPXXX é livre: VPB, VPEL, VPER (escada/esteira rolante),
+       VPIN (insumos)… — qualquer VP + 1 a 6 letras + número (Omie). */
     const cod = String(id.codigoProduto || '').toUpperCase().replace(/\s+/g, '');
-    const m = cod.match(/^(VP[A-Z]{2,3})-?(\d{1,6})$/);
-    if (!m) faltas.push('Código do produto Omie (ex.: VPEL-258)');
+    const m = cod.match(/^(VP[A-Z]{1,6})-?(\d{1,6})$/);
+    if (!m) faltas.push('Código do produto Omie (ex.: VPEL-258, VPB-25, VPER-10)');
 
     const tipo = skuTipo(id.nomeProduto);
     if (!tipo) faltas.push('Nome do produto');

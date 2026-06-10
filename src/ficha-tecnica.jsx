@@ -337,6 +337,15 @@ function FtEditor({ state, onIdent, onValue, onRemove, onMedia, onAddField, onNC
             {state.ncm_descricao && <span style={{ color: '#666', marginLeft: 8 }}>— {state.ncm_descricao}</span>}
           </div>
         )}
+        {/* Descrição DUIMP — preenchida pelo botão "✨ Usar descrição DUIMP"
+            do Copiloto (editável manualmente; persiste com a ficha) */}
+        <label className="ft-f full" style={{ marginTop: 12, display: 'block' }}>
+          <span>Descrição DUIMP {state.descricao_duimp ? '✓' : ''}</span>
+          <textarea className="ft-input" rows={3} value={state.descricao_duimp || ''}
+            onChange={(e) => onNCMField('descricao_duimp', e.target.value)}
+            placeholder="Gerada pelo Copiloto NCM (✨ Usar descrição DUIMP) ou digite manualmente — texto oficial do item na declaração"
+            style={{ width: '100%', padding: 8, fontSize: 13, fontFamily: 'inherit', border: '1px solid #C9CED6', borderRadius: 3, resize: 'vertical', lineHeight: 1.5, marginTop: 4, boxSizing: 'border-box' }}/>
+        </label>
       </section>
 
       {grupos.length === 0 && (
@@ -825,6 +834,15 @@ function FichaTecnicaPage() {
       identificacao: ficha.identificacao || {},
       cats: ficha.cats || window.FT.freshCats(),
       midia: ficha.midia || { desenho: null, foto: null },
+      /* Classificação fiscal NCM/DUIMP — restaura o que o usuário preencheu
+         e a decisão da IA (antes voltava limpo ao reabrir a ficha) */
+      insumo: ficha.insumo || '',
+      funcao_aplicacao: ficha.funcao_aplicacao || '',
+      eh_parte_de: ficha.eh_parte_de || '',
+      forma_estado: ficha.forma_estado || '',
+      ncm_recomendado: ficha.ncm_recomendado || '',
+      ncm_descricao: ficha.ncm_descricao || '',
+      descricao_duimp: ficha.descricao_duimp || '',
     });
     setView('nova');
   };

@@ -227,10 +227,113 @@
     return !!(state.identificacao.nomeProduto || '').trim() && compile(state).grupos.length > 0;
   }
 
+  /* ============================================================
+     SKU AUTOMÁTICO — determinístico (mesma ficha ⇒ mesmo SKU).
+     Padrão: VPEL-PP-TEL-AD-IN-800X2100-258
+       VPEL ........ prefixo do Código do Produto (Omie)
+       PP .......... tipo = iniciais do nome (Porta de Pavimento)
+       TEL/AD/IN ... características do dicionário fixo abaixo
+       800X2100 .... vão × altura detectados nos campos/descrições
+       258 ......... sequencial do Código do Produto (Omie)
+     ============================================================ */
+
+  /* Dicionário característica → sigla. Frases mais específicas PRIMEIRO.
+     Para ampliar, adicione AQUI — o usuário nunca digita sigla
+     (elimina interpretações divergentes). */
+  const SKU_DICIONARIO = [
+    /* — tipo construtivo — */
+    { re: /telesc[oó]pic/i,                                      sig: 'TEL' },
+    { re: /pantogr[aá]fic/i,                                     sig: 'PAN' },
+    { re: /semi[\s-]*autom[aá]tic/i,                             sig: 'SAU' },
+    { re: /autom[aá]tic/i,                                       sig: 'AUT' },
+    { re: /\bmanual\b/i,                                         sig: 'MAN' },
+    /* — abertura / lado — */
+    { re: /abertura\s+central|\bcentral\b/i,                     sig: 'AC'  },
+    { re: /abertura\s+direita|lado\s+direito|\bdireita\b/i,      sig: 'AD'  },
+    { re: /abertura\s+esquerda|lado\s+esquerdo|\besquerda\b/i,   sig: 'AE'  },
+    { re: /abertura\s+lateral/i,                                 sig: 'ALT' },
+    /* — material / acabamento / cor — */
+    { re: /a[cç]o\s+inox|\binox\b/i,                             sig: 'IN'  },
+    { re: /a[cç]o\s+carbono/i,                                   sig: 'ACA' },
+    { re: /galvanizad/i,                                         sig: 'GV'  },
+    { re: /pintad|pintura/i,                                     sig: 'PT'  },
+    { re: /\bvidro\b/i,                                          sig: 'VD'  },
+    { re: /alum[ií]nio/i,                                        sig: 'ALU' },
+    { re: /lat[aã]o/i,                                           sig: 'LTO' },
+    { re: /\bbronze\b/i,                                         sig: 'BZ'  },
+    { re: /borracha/i,                                           sig: 'BOR' },
+    { re: /\bnylon\b|poliamida/i,                                sig: 'NY'  },
+    { re: /escovad/i,                                            sig: 'ESV' },
+  ];
+
+  const SKU_STOPWORDS = ['de','da','do','das','dos','para','pra','com','sem','em','e','a','o','as','os','por','no','na'];
+
+  /* Tipo = iniciais das palavras significativas do nome (máx 3).
+     "Porta de Pavimento" → PP · "Botão de Chamada" → BC */
+  function skuTipo(nome) {
+    const palavras = String(nome || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-zA-Z\s]/g, ' ').split(/\s+/)
+      .filter((w) => w && SKU_STOPWORDS.indexOf(w.toLowerCase()) === -1);
+    return palavras.slice(0, 3).map((w) => w[0].toUpperCase()).join('');
+  }
+
+  /* Texto consolidado: nome + descrições + campos ativos preenchidos */
+  function skuTexto(state) {
+    const id = state.identificacao || {};
+    const partes = [id.nomeProduto, id.descricaoComercial, id.descricaoTecnica];
+    (state.cats || []).forEach((c) => (c.campos || []).forEach((f) => {
+      if (f.ativo && String(f.valor || '').trim() !== '') partes.push(f.nome + ' ' + f.valor + ' ' + (f.unidade || ''));
+    }));
+    return partes.filter(Boolean).join(' · ');
+  }
+
+  /* Dimensões: padrão 800x2100 no texto OU par de campos (vão/largura + altura) */
+  function skuDimensoes(state, texto) {
+    const m = texto.match(/(\d{2,4})\s*[x×]\s*(\d{2,4})/i);
+    if (m) return m[1] + 'X' + m[2];
+    let vao = null, alt = null;
+    (state.cats || []).forEach((c) => (c.campos || []).forEach((f) => {
+      if (!f.ativo || String(f.valor || '').trim() === '') return;
+      const v = String(f.valor).replace(/[^\d]/g, '');
+      if (!v) return;
+      if (/v[aã]o|largura|abertura/i.test(f.nome) && !vao) vao = v;
+      if (/altura/i.test(f.nome) && !alt) alt = v;
+    }));
+    return (vao && alt) ? vao + 'X' + alt : '';
+  }
+
+  /* Monta o SKU. Vai "nascendo sozinho" conforme a ficha é preenchida.
+     Retorna { sku, faltas[] } — sku vazio enquanto faltar a âncora. */
+  function buildSKU(state) {
+    const id = state.identificacao || {};
+    const faltas = [];
+
+    const cod = String(id.codigoProduto || '').toUpperCase().replace(/\s+/g, '');
+    const m = cod.match(/^(VP[A-Z]{2,3})-?(\d{1,6})$/);
+    if (!m) faltas.push('Código do produto Omie (ex.: VPEL-258)');
+
+    const tipo = skuTipo(id.nomeProduto);
+    if (!tipo) faltas.push('Nome do produto');
+
+    if (faltas.length) return { sku: '', faltas };
+
+    const texto = skuTexto(state);
+    const caracts = [];
+    SKU_DICIONARIO.forEach((d) => {
+      if (d.re.test(texto) && caracts.indexOf(d.sig) === -1) caracts.push(d.sig);
+    });
+    const dim = skuDimensoes(state, texto);
+
+    const partes = [m[1] + '-' + tipo].concat(caracts);
+    if (dim) partes.push(dim);
+    partes.push(m[2]);
+    return { sku: partes.join('-'), faltas: [] };
+  }
+
   window.FT = {
     UNIDADES, LIB, TEMPLATES,
     slug, hoje, freshCats, freshState,
     compile, aplicarTemplate, nextOrdem, podeGerar,
-    setLibraryExtras,
+    setLibraryExtras, buildSKU,
   };
 }());

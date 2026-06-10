@@ -275,6 +275,13 @@ function FtEditor({ state, onIdent, onValue, onRemove, onMedia, onAddField, onNC
     .map((c) => ({ c, ativos: c.campos.filter((fld) => fld.ativo).sort((a, b) => (a.ordem || 0) - (b.ordem || 0)) }))
     .filter((g) => g.ativos.length);
 
+  /* SKU automático — nasce sozinho conforme a ficha é preenchida */
+  const skuAuto = window.FT.buildSKU(state);
+  /* mantém o state sincronizado (persiste no save / sync catálogo) */
+  _ftUE(() => {
+    if ((state.identificacao.sku || '') !== skuAuto.sku) onIdent('sku', skuAuto.sku);
+  }, [skuAuto.sku]);
+
   return (
     <div className="ft-editor">
       <section className="ft-card">
@@ -289,14 +296,23 @@ function FtEditor({ state, onIdent, onValue, onRemove, onMedia, onAddField, onNC
           <label className="ft-f"><span>Categoria / Segmento</span>
             <input value={state.identificacao.categoriaProduto} onChange={(e) => onIdent('categoriaProduto', e.target.value)} placeholder="Elevador, Escada rolante, Esteira…"/>
           </label>
-          <label className="ft-f"><span>SKU</span>
-            <input className="ft-mono" value={state.identificacao.sku} onChange={(e) => onIdent('sku', e.target.value)} placeholder="opcional"/>
+          <label className="ft-f"><span>Código do Produto (Omie) *</span>
+            <input className="ft-mono" value={state.identificacao.codigoProduto || ''} onChange={(e) => onIdent('codigoProduto', e.target.value)} placeholder="ex.: VPEL-258"/>
           </label>
           <label className="ft-f"><span>Part Number</span>
             <input className="ft-mono" value={state.identificacao.partNumber} onChange={(e) => onIdent('partNumber', e.target.value)} placeholder="opcional"/>
           </label>
-          <label className="ft-f"><span>Código do Produto</span>
-            <input className="ft-mono" value={state.identificacao.codigoProduto || ''} onChange={(e) => onIdent('codigoProduto', e.target.value)} placeholder="ex.: VPMP-242"/>
+          {/* SKU é gerado automaticamente — usuário não digita (padrão único, sem interpretações) */}
+          <label className="ft-f full"><span>SKU · gerado automaticamente {skuAuto.sku ? '✓' : ''}</span>
+            <input className="ft-mono" value={skuAuto.sku} readOnly disabled
+              placeholder={'aguardando: ' + (skuAuto.faltas.join(' + ') || 'preenchimento')}
+              style={{ background: skuAuto.sku ? '#fffbe6' : '#f6f6f6', fontWeight: 700, cursor: 'default' }}
+              title="Montado pelo padrão: PREFIXO-TIPO-CARACTERÍSTICAS-DIMENSÕES-SEQUENCIAL"/>
+            {!skuAuto.sku && skuAuto.faltas.length > 0 && (
+              <em style={{ fontSize: 10.5, color: '#b45309', fontStyle: 'normal', marginTop: 2 }}>
+                Falta: {skuAuto.faltas.join(' · ')} — o SKU nasce sozinho conforme você preenche.
+              </em>
+            )}
           </label>
         </div>
       </section>

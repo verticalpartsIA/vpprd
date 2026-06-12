@@ -281,6 +281,16 @@ function App() {
 const bootEl = document.getElementById('vp-boot');
 if (bootEl) bootEl.remove();
 
+// Timeout de emergência: se tudo ficar travado, força o app a renderizar
+setTimeout(() => {
+  if (!document.getElementById('root').innerHTML) {
+    const boot = document.getElementById('vp-boot');
+    if (boot) boot.remove();
+    document.getElementById('root').innerHTML = '<div style="padding:40px;text-align:center;"><h1>⚠️ Timeout ao carregar</h1><p>O app está demorando. Recarregando...</p></div>';
+    setTimeout(() => { window.location.reload(); }, 2000);
+  }
+}, 5000);
+
 ReactDOM.createRoot(document.getElementById("root")).render(
   <ErrorBoundary>
     <App/>

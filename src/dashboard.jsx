@@ -178,9 +178,14 @@ function Dashboard({ role, setRoute }) {
   const reloadDashboard = React.useCallback(() => {
     if (!window.__VP_SB) { setLoading(false); return Promise.resolve(); }
     setLoading(true);
+    // Timeout de 3s: se Supabase não responder, renderiza vazio
+    const timeoutId = setTimeout(() => {
+      setSbData({ kpis: {}, tarefas: [], alertas: [], ganttProjetos: [], estoqueCritico: [], alertasCriticos: 0 });
+      setLoading(false);
+    }, 3000);
     return window.__VP_SB.loadDashboardData(role)
-      .then(data => { setSbData(data); setLoading(false); })
-      .catch((err) => { setLoading(false); window.toast?.('Erro ao atualizar dashboard: ' + err.message, 'error'); });
+      .then(data => { clearTimeout(timeoutId); setSbData(data); setLoading(false); })
+      .catch((err) => { clearTimeout(timeoutId); setLoading(false); window.toast?.('Erro ao atualizar dashboard: ' + err.message, 'error'); });
   }, [role]);
 
   React.useEffect(() => {

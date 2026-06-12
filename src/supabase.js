@@ -59,10 +59,20 @@
     // Flag de aba corrente (sobrevive a reloads dentro da mesma aba)
     const hasTabFlag = sessionStorage.getItem('vpprd_sso_ok') === '1';
 
-    // Sem token SSO E sem flag de aba → acesso direto bloqueado
-    if (!ssoToken && !hasTabFlag) {
+    // Bypass para desenvolvimento local (localhost, 127.0.0.1)
+    const isLocalhost = /^(localhost|127\.0\.0\.1|0\.0\.0\.0)/.test(window.location.hostname);
+
+    // Sem token SSO E sem flag de aba E não está em localhost → acesso direto bloqueado
+    if (!ssoToken && !hasTabFlag && !isLocalhost) {
       window.location.replace('https://vpsistema.com');
       return;
+    }
+
+    // Em localhost sem token → criar flag de desenvolvimento
+    if (isLocalhost && !ssoToken && !hasTabFlag) {
+      sessionStorage.setItem('vpprd_sso_ok', '1');
+      const devUser = { nome: 'Desenvolvimento', email: 'dev@localhost', iniciais: 'DV', id: 'dev-local' };
+      saveUser(devUser);
     }
 
     // Restaura usuário já capturado nesta aba (reloads)

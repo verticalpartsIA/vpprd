@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
     const anexo = await omieCall("geral/anexo", "IncluirAnexo", {
       cTabela: "produtos",
       nId: nIdProduto,
-      cCodIntAnexo: `ft-${ficha_id}`.slice(0, 60),
+      cCodIntAnexo: `ft-${String(ficha_id).replace(/-/g, '').slice(0, 17)}`,
       cNomeArquivo: nomeArquivo,
       cTipoArquivo: "pdf",
       cArquivo: pdf_base64,

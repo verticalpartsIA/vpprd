@@ -9,29 +9,49 @@
 
   function sb() { return (window.__VP_SB || {}).sb; }
 
-  /* Gera o PDF da ficha a partir da pré-visualização (mesma técnica
-     do botão "Salvar PDF": html2canvas → jsPDF, 1 página A4). */
+  /* Gera o PDF da ficha em tamanho real (html2canvas → jsPDF, 1 página A4).
+     Se o overlay estiver aberto usa-o diretamente; caso contrário clona a
+     ficha do preview e renderiza fora de qualquer container com zoom. */
   async function gerarPdfBase64() {
     if (!window.html2canvas || !window.jspdf) {
       throw new Error('Bibliotecas de PDF ainda carregando — tente de novo em 2s');
     }
-    const el = document.querySelector('.ft-ficha-overlay .ft-ficha')
-      || document.querySelector('.ft-previewcol .ft-ficha')
-      || document.querySelector('.ft-ficha');
-    if (!el) throw new Error('Pré-visualização da ficha não encontrada na tela');
+
+    // Overlay aberto = versão em tamanho real, preferência máxima
+    let el = document.querySelector('.ft-ficha-overlay .ft-ficha');
+    let tempEl = null;
+
+    if (!el) {
+      const source = document.querySelector('.ft-previewcol .ft-ficha')
+        || document.querySelector('.ft-ficha');
+      if (!source) throw new Error('Pré-visualização da ficha não encontrada na tela');
+
+      // Clona e renderiza fora do container com zoom para obter tamanho real
+      tempEl = source.cloneNode(true);
+      tempEl.style.cssText = [
+        'position:fixed', 'top:-9999px', 'left:-9999px',
+        'zoom:1', 'transform:none', 'width:1040px',
+        'visibility:hidden', 'pointer-events:none',
+      ].join(';');
+      document.body.appendChild(tempEl);
+      el = tempEl;
+    }
 
     const ori = el.getAttribute('data-orientation') || 'landscape';
-    const canvas = await window.html2canvas(el, {
-      scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false,
-    });
-    const imgData = canvas.toDataURL('image/jpeg', 0.95);
-    const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: ori, compress: true });
-    const pw = pdf.internal.pageSize.getWidth();
-    const ph = pdf.internal.pageSize.getHeight();
-    pdf.addImage(imgData, 'JPEG', 0, 0, pw, ph, undefined, 'FAST');
-    // dataurlstring → "data:application/pdf;...;base64,XXXX"
-    return pdf.output('datauristring').split('base64,')[1];
+    try {
+      const canvas = await window.html2canvas(el, {
+        scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false,
+      });
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: ori, compress: true });
+      const pw = pdf.internal.pageSize.getWidth();
+      const ph = pdf.internal.pageSize.getHeight();
+      pdf.addImage(imgData, 'JPEG', 0, 0, pw, ph, undefined, 'FAST');
+      return pdf.output('datauristring').split('base64,')[1];
+    } finally {
+      if (tempEl) document.body.removeChild(tempEl);
+    }
   }
 
   let busy = false; // trava cliques duplos — o Omie rejeita chamadas repetidas (<60s)

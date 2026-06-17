@@ -96,8 +96,20 @@ function normaOptionsPorFamilia(familia) {
 const FIXED = {
   emailDomain: "@verticalparts.com.br",
   telefoneFixo: "+55 11 2528-6473",
-  enderecoVP: "Rua Armandina Braga de Almeida, 383",
 };
+
+const FILIAIS = [
+  { id: "SP", label: "Matriz — São Paulo/SP",     cnpj: "15.822.325/0001-XX", endereco: "Rua Armandina Braga de Almeida, 383",  cidade: "São Paulo",     uf: "SP" },
+  { id: "SC", label: "Filial — Florianópolis/SC", cnpj: "15.822.325/0002-08", endereco: "Rua Lauro Linhares, 2055, Trindade", cep: "88036-003", cidade: "Florianópolis", uf: "SC" },
+];
+
+function calcDataExpiracao(dataEmissao, validadeDias) {
+  if (!dataEmissao) return null;
+  const d = new Date(dataEmissao + "T12:00:00");
+  if (isNaN(d.getTime())) return null;
+  d.setDate(d.getDate() + (parseInt(validadeDias) || 30));
+  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+}
 
 /* ---- Field primitives ---- */
 function PEField({ label, required, tag, help, children, span }) {
@@ -236,16 +248,42 @@ function PERepAdd({ label, onAdd }) {
    ============================================================ */
 
 function S_Proposta({ d, set }) {
+  const filialAtual = FILIAIS.find(f => f.id === d.filial) || FILIAIS[0];
+  const expiracao = calcDataExpiracao(d.dataEmissao, d.validadeDias);
+  const enderecoFilial = filialAtual.endereco + (filialAtual.cep ? ` — CEP ${filialAtual.cep}` : "") + ` — ${filialAtual.cidade}/${filialAtual.uf}`;
   return (
     <div className="pe-grid cols-3">
+      <PEField label="Filial Emissora" required span="3">
+        <PESelect value={d.filial} onChange={(v) => set("filial", v)} options={FILIAIS.map(f => ({ value: f.id, label: f.label }))} placeholder="Selecione a filial..."/>
+        {d.filial === "SC" ? (
+          <div style={{ marginTop: 8, padding: "8px 12px", background: "#fff8e1", border: "1px solid #f59e0b", borderRadius: 6, fontSize: 11, color: "#92400e" }}>
+            ⚠️ Faturamento pela filial SC: verificar ICMS/DIFAL interestadual com contabilidade antes de emitir NF.
+          </div>
+        ) : null}
+      </PEField>
+
+      <PEField label="Endereço de Faturamento" tag="automático" span="2">
+        <PECalc value={enderecoFilial}/>
+      </PEField>
+      <PEField label="CNPJ — VP" tag="automático">
+        <PECalc value={filialAtual.cnpj}/>
+      </PEField>
+
       <PEField label="Nº da Proposta" required>
         <PETextInput value={d.numero} onChange={(v) => set("numero", v)} placeholder="VP-2025-000"/>
       </PEField>
-      <PEField label="Linha de Data">
+      <PEField label="Data de Emissão" required>
+        <PETextInput type="date" value={d.dataEmissao || ""} onChange={(v) => set("dataEmissao", v)}/>
+      </PEField>
+      <PEField label="Validade (dias)">
+        <PENumber value={d.validadeDias} onChange={(v) => set("validadeDias", v)} placeholder="30" min={1}/>
+      </PEField>
+
+      <PEField label="Linha de Data" span="2">
         <PETextInput value={d.dataLinha} onChange={(v) => set("dataLinha", v)} placeholder="Guarulhos, 26 de Novembro de 2025"/>
       </PEField>
-      <PEField label="Validade">
-        <PETextInput value={d.validade} onChange={(v) => set("validade", v)} placeholder="30 dias"/>
+      <PEField label="Válido até" tag="calculado">
+        <PECalc value={expiracao || "—"}/>
       </PEField>
 
       <PEField label="Nome do Vendedor" required>
@@ -302,6 +340,16 @@ function S_Cliente({ d, set }) {
       </PEField>
       <PEField label="CEP">
         <PETextInput value={d.cliente.cep} onChange={(v) => set("cliente.cep", v)} placeholder="00000-000"/>
+      </PEField>
+
+      <PEField label="CPF do Representante Legal" tag="P9">
+        <PETextInput value={d.cliente.cpfRepresentante} onChange={(v) => set("cliente.cpfRepresentante", v)} placeholder="000.000.000-00"/>
+      </PEField>
+      <PEField label="Cargo">
+        <PETextInput value={d.cliente.cargoRepresentante} onChange={(v) => set("cliente.cargoRepresentante", v)} placeholder="Diretor Comercial"/>
+      </PEField>
+      <PEField label="Poderes de Representação">
+        <PETextInput value={d.cliente.poderesRepresentante} onChange={(v) => set("cliente.poderesRepresentante", v)} placeholder="Poderes plenos para assinar contratos"/>
       </PEField>
     </div>
   );
@@ -526,14 +574,29 @@ function S_Valores({ d, set, eq }) {
         <div className="pe-field-label">Parcelas <span className="pe-tag">{parcelas.length} parcela{parcelas.length !== 1 ? "s" : ""}</span></div>
       </div>
 
-      {parcelas.map((p, i) => (
-        <div key={i} className="pe-parcela-row">
-          <span className="pe-parcela-row__idx">{i + 1}</span>
-          <input className="pe-input" value={p.desc || ""} onChange={(e) => { const a = [...parcelas]; a[i] = { ...a[i], desc: e.target.value }; setParcelas(a); }} placeholder="30% — Entrada (assinatura)"/>
-          <div className="pe-input-grp"><span className="pe-input-prefix">R$</span><input className="pe-input" value={p.valor || ""} onChange={(e) => { const a = [...parcelas]; a[i] = { ...a[i], valor: e.target.value }; setParcelas(a); }} placeholder="144.000,00"/></div>
-          <button type="button" className="pe-parcela-row__del" onClick={() => setParcelas(parcelas.filter((_, j) => j !== i))}><Icon.x size={12}/></button>
-        </div>
-      ))}
+      {parcelas.map((p, i) => {
+        const updateP = (key, val) => { const a = [...parcelas]; a[i] = { ...a[i], [key]: val }; setParcelas(a); };
+        const isPrazo = (p.marco || "").startsWith("Prazo");
+        return (
+          <div key={i} style={{ marginBottom: 6 }}>
+            <div className="pe-parcela-row">
+              <span className="pe-parcela-row__idx">{i + 1}</span>
+              <select className="pe-input" style={{ flex: "0 0 190px" }} value={p.marco || ""} onChange={(e) => updateP("marco", e.target.value)}>
+                <option value="">Marco de pagamento...</option>
+                {["Sinal","Embarque BL","Entrega no local","Assinatura Termo de Aceite","Prazo (dias/semanas)"].map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+              <input className="pe-input" value={p.desc || ""} onChange={(e) => updateP("desc", e.target.value)} placeholder="Ex.: 30% — Entrada"/>
+              <div className="pe-input-grp"><span className="pe-input-prefix">R$</span><input className="pe-input" value={p.valor || ""} onChange={(e) => updateP("valor", e.target.value)} placeholder="144.000,00"/></div>
+              <button type="button" className="pe-parcela-row__del" onClick={() => setParcelas(parcelas.filter((_, j) => j !== i))}><Icon.x size={12}/></button>
+            </div>
+            {isPrazo ? (
+              <div style={{ paddingLeft: 32, marginTop: 4 }}>
+                <input className="pe-input" value={p.prazoDesc || ""} onChange={(e) => updateP("prazoDesc", e.target.value)} placeholder="Ex.: 30 dias corridos após embarque (B/L)"/>
+              </div>
+            ) : null}
+          </div>
+        );
+      })}
       <PERepAdd label="+ Adicionar Parcela" onAdd={() => setParcelas([...parcelas, { desc: "", valor: "" }])}/>
 
       <div className="pe-totais">
@@ -584,9 +647,23 @@ function S_Ajustes({ d, set, eq }) {
 function S_PrazoEntrega({ d, set, eq }) {
   const p = d[eq].prazo;
   const u = (k) => (v) => set(`${eq}.prazo.${k}`, v);
+  const unitOpts = ["dias úteis", "semanas", "meses"];
   return (
     <div className="pe-grid cols-1">
-      <PEField label="Prazo de Entrega"><PETextInput value={p.prazo} onChange={u("prazo")} placeholder="120 dias após assinatura + 45 dias instalação"/></PEField>
+      <div className="pe-grid cols-3">
+        <PEField label="Fabricação / Entrega" tag="prazo" span="2">
+          <PENumber value={p.prazo} onChange={u("prazo")} placeholder="120"/>
+        </PEField>
+        <PEField label="Unidade">
+          <PESelect value={p.prazoUnit} onChange={u("prazoUnit")} options={unitOpts} placeholder="Selecione..."/>
+        </PEField>
+        <PEField label="Instalação" tag="prazo" span="2">
+          <PENumber value={p.instalacao} onChange={u("instalacao")} placeholder="45"/>
+        </PEField>
+        <PEField label="Unidade">
+          <PESelect value={p.instalacaoUnit} onChange={u("instalacaoUnit")} options={unitOpts} placeholder="Selecione..."/>
+        </PEField>
+      </div>
       <PEField label="Condições Gerais e Covid"><PETextarea rows={3} value={p.condCovid} onChange={u("condCovid")} placeholder="Os prazos podem ser revisados em caso de eventos extraordinários relacionados a pandemia..."/></PEField>
     </div>
   );
@@ -636,6 +713,28 @@ function S_CondPagamentoElev({ d, set }) {
       <PEField label="Impostos e Serviços"><PETextarea rows={2} value={c.impostos} onChange={u("impostos")} placeholder="Impostos sobre prestação de serviços (ISS) faturados separadamente..."/></PEField>
       <PEField label="Ajuste de Frete Marítimo"><PETextarea rows={2} value={c.ajusteFrete} onChange={u("ajusteFrete")} placeholder="Variação cambial e frete marítimo serão reajustados conforme valor de embarque..."/></PEField>
       <PEField label="Reajuste"><PETextarea rows={2} value={c.reajuste} onChange={u("reajuste")} placeholder="Reajuste anual pelo IPCA acumulado..."/></PEField>
+    </div>
+  );
+}
+
+const _P2 = "A Vertical Parts Elevadores Ltda. permanece proprietária dos equipamentos fornecidos até o integral pagamento do preço contratual. Em caso de inadimplência, a CONTRATANTE autoriza expressamente a reintegração de posse dos equipamentos, independentemente de interpelação judicial ou extrajudicial. [Texto jurídico completo em elaboração com assessoria jurídica da VP.]";
+const _P5 = "Reajuste Cambial: o valor dos equipamentos importados está indexado à variação da taxa de câmbio USD/BRL (dólar comercial PTAX — Banco Central do Brasil), apurada entre a data de assinatura do contrato e a data de embarque (B/L). Adicionalmente, o IGP-DI (Índice Geral de Preços — Disponibilidade Interna, FGV) poderá ser aplicado sobre os serviços nacionais (montagem, comissionamento e supervisão técnica), de forma independente e não cumulativa com o indexador cambial. Reajustes comunicados ao contratante com antecedência mínima de 5 (cinco) dias úteis antes do faturamento.";
+const _P10 = "PROTEÇÃO DE DADOS (LGPD — Lei nº 13.709/2018): As partes declaram estar cientes e comprometidas com as disposições da Lei Geral de Proteção de Dados Pessoais. Os dados pessoais eventualmente coletados no âmbito desta proposta/contrato serão utilizados exclusivamente para fins de execução contratual, gestão comercial e cumprimento de obrigações legais, com base na legítima execução do contrato (art. 7º, V, LGPD). É garantido ao titular o direito de acesso, correção e eliminação dos dados, conforme regulamentação da ANPD.";
+
+function S_ClausulasComerciais({ d, set }) {
+  const c = d.elevador.condicoesPagto;
+  const u = (k) => (v) => set(`elevador.condicoesPagto.${k}`, v);
+  return (
+    <div className="pe-grid cols-1">
+      <PEField label="P2 — Reserva de Domínio" tag="cláusula" help="Aguardando texto jurídico definitivo da assessoria VP.">
+        <PETextarea rows={4} value={c.reservaDominio} onChange={u("reservaDominio")} placeholder={_P2}/>
+      </PEField>
+      <PEField label="P5 — Reajuste Cambial (USD/BRL + IGP-DI)" tag="fórmula editável" help="Indexadores aplicados de forma independente — não estipule percentuais fixos.">
+        <PETextarea rows={5} value={c.reajusteCambial} onChange={u("reajusteCambial")} placeholder={_P5}/>
+      </PEField>
+      <PEField label="P10 — LGPD" tag="texto pré-definido">
+        <PETextarea rows={4} value={c.lgpd} onChange={u("lgpd")} placeholder={_P10}/>
+      </PEField>
     </div>
   );
 }
@@ -742,7 +841,7 @@ function S_Especificidades({ d, set, eq }) {
 }
 
 Object.assign(window, {
-  UF_LIST,
+  UF_LIST, FILIAIS, calcDataExpiracao,
   PEField, PETextInput, PETextarea, PECurrency, PENumber, PESelect, PECalc, PEPresets,
   PESection, PERep, PERepAdd,
   S_Proposta, S_Cliente, S_Obra, S_TextoProposta,
@@ -750,4 +849,6 @@ Object.assign(window, {
   S_RepText, S_Valores, S_Ajustes, S_PrazoEntrega, S_Responsabilidades,
   S_InstalacaoMontagem, S_GarantiaCondicoes, S_CondPagamentoElev,
   S_DescricaoSimples, S_EspecEscada, S_Especificidades,
+  S_ClausulasComerciais,
+  _P2, _P5, _P10,
 });

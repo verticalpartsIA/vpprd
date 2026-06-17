@@ -39,6 +39,9 @@ function PEPreview({ data, eq }) {
 
         {/* Garantia */}
         <PreviewGarantia data={data} eq={eqLabel}/>
+
+        {/* Cláusulas Comerciais (P2 + P9 + P10) — apenas elevador */}
+        {eqLabel === "elevador" && <PreviewClausulas data={data}/>}
       </div>
     </div>
   );
@@ -46,6 +49,7 @@ function PEPreview({ data, eq }) {
 
 function PreviewCapa({ data, eq }) {
   const v = data.vendedor;
+  const filial = FILIAIS.find(f => f.id === data.filial) || FILIAIS[0];
   return (
     <div className="pe__pdf">
       <div className="pe__pdf-capa" data-eq={eq}>
@@ -64,7 +68,7 @@ function PreviewCapa({ data, eq }) {
           </dl>
           <div className="pe__pdf-capa-foot">
             <span><Icon.message size={6}/> {v.celular || v.fixo || "(11) 2528-6473"}</span>
-            <span><Icon.pin size={6}/> Rua Armandina Braga de Almeida, 383</span>
+            <span><Icon.pin size={6}/> {filial.endereco} — {filial.cidade}/{filial.uf}</span>
           </div>
         </div>
       </div>
@@ -117,7 +121,10 @@ function PreviewTexto({ data, eq, eqName }) {
         <div className="pdf-eyebrow">▎ Comercial</div>
         <h2 className="pdf-h2">{eqName}</h2>
         <div className="pdf-rule"/>
-        {data.dataLinha ? <p style={{ fontWeight: 700, marginBottom: 8 }}>{data.dataLinha}</p> : <p style={{ color: "var(--vp-gray-400)", fontStyle: "italic" }}>São Paulo, [data]</p>}
+        {data.dataLinha ? <p style={{ fontWeight: 700, marginBottom: 4 }}>{data.dataLinha}</p> : <p style={{ color: "var(--vp-gray-400)", fontStyle: "italic" }}>São Paulo, [data]</p>}
+        {calcDataExpiracao(data.dataEmissao, data.validadeDias)
+          ? <p style={{ fontSize: 8, color: "var(--vp-gray-500)", marginBottom: 8 }}>Válido até <b>{calcDataExpiracao(data.dataEmissao, data.validadeDias)}</b></p>
+          : null}
         {ed.textoProposta ? <p>{ed.textoProposta}</p> : <p style={{ color: "var(--vp-gray-400)", fontStyle: "italic" }}>O texto da proposta aparecerá aqui conforme preenchimento.</p>}
         <h3 className="pdf-h3">Linha de Modelos</h3>
         {ed.textoModelos ? <p>{ed.textoModelos}</p> : <p style={{ color: "var(--vp-gray-400)", fontStyle: "italic" }}>Descreva a linha do produto neste campo.</p>}
@@ -310,11 +317,66 @@ function PreviewGarantia({ data, eq }) {
         {g.condicoes ? <p>{g.condicoes}</p> : <p style={{ color: "var(--vp-gray-400)", fontStyle: "italic" }}>Condições gerais serão preenchidas.</p>}
 
         <div className="pdf-footer">
-          <span>VerticalParts · CNPJ XX.XXX.XXX/0001-XX</span>
+          <span>VerticalParts · CNPJ {(FILIAIS.find(f => f.id === data.filial) || FILIAIS[0]).cnpj}</span>
           <span>{data.numero || "VP-2026-XXX"}</span>
         </div>
       </div>
       <div className="pe__pdf-pgnum">Página 14 de 16</div>
+    </div>
+  );
+}
+
+function PreviewClausulas({ data }) {
+  const c = data.elevador.condicoesPagto;
+  const cli = data.cliente;
+  const filial = FILIAIS.find(f => f.id === data.filial) || FILIAIS[0];
+  const hasRep = cli.cpfRepresentante || cli.cargoRepresentante;
+  return (
+    <div className="pe__pdf">
+      <div className="pe__pdf-pgmark">P. 15 · Cláusulas Comerciais</div>
+      <div className="pe__pdf-inner">
+        <div className="pdf-eyebrow">▎ Jurídico / Comercial</div>
+        <h2 className="pdf-h2">Cláusulas Comerciais</h2>
+        <div className="pdf-rule"/>
+
+        <h3 className="pdf-h3">Reserva de Domínio (P2)</h3>
+        <p style={{ whiteSpace: "pre-line", fontSize: 7 }}>{c.reservaDominio || _P2}</p>
+
+        <h3 className="pdf-h3">Reajuste Cambial (P5)</h3>
+        <p style={{ whiteSpace: "pre-line", fontSize: 7 }}>{c.reajusteCambial || _P5}</p>
+
+        <h3 className="pdf-h3">Proteção de Dados — LGPD (P10)</h3>
+        <p style={{ whiteSpace: "pre-line", fontSize: 7 }}>{c.lgpd || _P10}</p>
+
+        {hasRep ? (
+          <>
+            <div className="pdf-rule" style={{ marginTop: 14 }}/>
+            <h3 className="pdf-h3">Assinaturas</h3>
+            <div className="pdf-spec-grid">
+              <div><span>Representante Legal</span><b>{cli.responsavel || "—"}</b></div>
+              <div><span>CPF</span><b>{cli.cpfRepresentante || "—"}</b></div>
+              <div><span>Cargo</span><b>{cli.cargoRepresentante || "—"}</b></div>
+              <div><span>Poderes</span><b>{cli.poderesRepresentante || "—"}</b></div>
+            </div>
+            <div style={{ marginTop: 18, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, fontSize: 7 }}>
+              <div style={{ borderTop: "1px solid #ccc", paddingTop: 4 }}>
+                <div>{cli.responsavel || "Representante do Contratante"}</div>
+                <div style={{ color: "#666" }}>{cli.nome || "Empresa Contratante"} · CPF {cli.cpfRepresentante || "—"}</div>
+              </div>
+              <div style={{ borderTop: "1px solid #ccc", paddingTop: 4 }}>
+                <div>VerticalParts Elevadores Ltda.</div>
+                <div style={{ color: "#666" }}>CNPJ {filial.cnpj} · {filial.cidade}/{filial.uf}</div>
+              </div>
+            </div>
+          </>
+        ) : null}
+
+        <div className="pdf-footer">
+          <span>VerticalParts · CNPJ {filial.cnpj}</span>
+          <span>{data.numero || "VP-2026-XXX"}</span>
+        </div>
+      </div>
+      <div className="pe__pdf-pgnum">Página 15 de 16</div>
     </div>
   );
 }

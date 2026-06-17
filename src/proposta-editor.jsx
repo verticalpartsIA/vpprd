@@ -13,12 +13,16 @@ function makeDefaultProposta() {
   const anoAtual = hoje.getFullYear();
   return {
     numero: `VP-${anoAtual}-001`,
+    filial: "SP",
+    dataEmissao: `${anoAtual}-${String(hoje.getMonth()+1).padStart(2,"0")}-${String(hoje.getDate()).padStart(2,"0")}`,
+    validadeDias: 30,
     dataLinha: `São Paulo, ${hoje.getDate()} de ${meses[hoje.getMonth()]} de ${anoAtual}`,
     validade: "30 dias",
     vendedor: { nome: "", celular: "", fixo: "", email: "" },
     cliente: { nome: "", cnpj: "", responsavel: "",
       endereco: "", numero: "", bairro: "", cidade: "", uf: "", cep: "",
-      email: "", telefone: "" },
+      email: "", telefone: "",
+      cpfRepresentante: "", cargoRepresentante: "", poderesRepresentante: "" },
     obra: { nome: "", endereco: "", numero: "",
       bairro: "", cidade: "", uf: "", cep: "" },
 
@@ -61,11 +65,11 @@ function makeDefaultProposta() {
           { desc: "3ª PARCELA", valor: "" },
           { desc: "4ª PARCELA", valor: "" },
         ]},
-      condicoesPagto: { venda: "", impostos: "", ajusteFrete: "", reajuste: "" },
+      condicoesPagto: { venda: "", impostos: "", ajusteFrete: "", reajuste: "", reservaDominio: _P2, reajusteCambial: _P5, lgpd: _P10 },
       ajustes: { preset: "sp", cambio: "5,50", faturamento: "", reajuste: "Reajuste anual conforme IPCA acumulado.",
         taxasIn: "II, IPI, PIS/COFINS sobre importação. ICMS interestadual.",
         taxasOut: "ICMS final destino (DIFAL conforme localização da obra). Taxa CREA/CAU." },
-      prazo: { prazo: "prazo de 120 (cento e vinte) a 150 (cento e cinquenta) dias", condCovid: "Os prazos poderão ser revisados em caso de eventos extraordinários relacionados a pandemia, escassez global de semicondutores ou bloqueios portuários." },
+      prazo: { prazo: "120", prazoUnit: "dias úteis", instalacao: "45", instalacaoUnit: "dias úteis", condCovid: "Os prazos poderão ser revisados em caso de eventos extraordinários relacionados a pandemia, escassez global de semicondutores ou bloqueios portuários." },
       responsabilidades: { tipoServico: "", itemMontagem: "Içamento + posicionamento + comissionamento" },
       garantia: { garantia: "24 (vinte e quatro) meses contra defeitos de fabricação + 12 meses de serviço técnico preventivo.",
         condicoes: "Esta proposta é válida por 30 dias a contar da emissão. Quaisquer alterações no escopo deverão ser formalizadas por aditivo contratual. As partes elegem o foro da Comarca de São Paulo." },
@@ -165,6 +169,7 @@ function getSections(eq) {
       { id: "infra", title: "Infraestrutura", icon: "hardhat", group: "Produto" },
       { id: "valores", title: "Valores e Pagamento", icon: "dollar", group: "Comercial" },
       { id: "condicoesPagto", title: "Condições Gerais de Pagamento", icon: "scale", group: "Comercial" },
+      { id: "clausulas", title: "Cláusulas Comerciais", icon: "fileText", group: "Comercial" },
       { id: "ajustes", title: "Ajustes, Impostos e Câmbio", icon: "globe", group: "Comercial" },
       { id: "prazo", title: "Prazo e Entrega", icon: "truck", group: "Operacional" },
       { id: "responsabilidades", title: "Responsabilidades", icon: "shield", group: "Operacional" },
@@ -245,6 +250,13 @@ function PropostaEditor({ setRoute }) {
     }
   };
 
+  // Commit C — validade calculada
+  const todayMidnight = new Date(); todayMidnight.setHours(0, 0, 0, 0);
+  const dataExpDate = data.dataEmissao
+    ? (() => { const d = new Date(data.dataEmissao + "T12:00:00"); d.setDate(d.getDate() + (parseInt(data.validadeDias) || 30)); return d; })()
+    : null;
+  const isExpirada = dataExpDate ? todayMidnight > dataExpDate : false;
+
   const sections = getSections(eq);
   const groups = sections.reduce((acc, s) => {
     (acc[s.group] = acc[s.group] || []).push(s);
@@ -314,8 +326,8 @@ function PropostaEditor({ setRoute }) {
           <div className="row gap-2">
             <Button variant="ghost" size="sm" icon="copy" onClick={resetProposal}>Reiniciar</Button>
             <Button variant="outline" size="sm" icon="eye" onClick={() => window.print()}>Visualizar</Button>
-            <Button variant="outline" size="sm" icon="download" onClick={() => { window.toast("Abrindo diálogo de impressão / salvar PDF…", "info"); setTimeout(() => window.print(), 200); }}>Gerar PDF</Button>
-            <Button variant="primary" size="sm" icon="send" onClick={() => window.toast("Proposta enviada (simulação) — fluxo real será implementado", "success")}>Enviar p/ Cliente</Button>
+            <Button variant="outline" size="sm" icon="download" disabled={isExpirada} onClick={() => { window.toast("Abrindo diálogo de impressão / salvar PDF…", "info"); setTimeout(() => window.print(), 200); }}>Gerar PDF</Button>
+            <Button variant="primary" size="sm" icon="send" disabled={isExpirada} onClick={() => window.toast("Proposta enviada (simulação) — fluxo real será implementado", "success")}>Enviar p/ Cliente</Button>
           </div>
         </div>
 
@@ -373,6 +385,11 @@ function PropostaEditor({ setRoute }) {
 
           {/* Form */}
           <div className="pe__form" ref={formRef}>
+            {isExpirada ? (
+              <div style={{ margin: "0 0 16px 0", padding: "12px 16px", background: "#fef2f2", border: "1px solid #ef4444", borderRadius: 8, fontSize: 12, color: "#991b1b", fontWeight: 600 }}>
+                ⛔ Proposta expirada — a data de validade foi ultrapassada. Atualize a Data de Emissão ou o número de Validade (dias) para reativar os botões de envio.
+              </div>
+            ) : null}
             {sections.map((s, i) => {
               const f = fillFor(data, eq, s.id);
               const isCollapsed = !!collapsed[s.id];
@@ -393,10 +410,10 @@ function PropostaEditor({ setRoute }) {
               <span className="pe__autosave"><span className="dot"/> Salvo automaticamente · {Math.max(0, Math.floor((Date.now() - savedAt) / 1000))}s atrás</span>
               <div className="spacer" style={{ flex: 1 }}/>
               <Button variant="ghost" size="sm" icon="chevLeft" onClick={() => setRoute("propostas")}>Voltar</Button>
-              <Button variant="outline" size="sm" icon="download" onClick={() => { window.toast("Abrindo diálogo salvar PDF…", "info"); setTimeout(() => window.print(), 200); }}>Gerar PDF</Button>
+              <Button variant="outline" size="sm" icon="download" disabled={isExpirada} onClick={() => { window.toast("Abrindo diálogo salvar PDF…", "info"); setTimeout(() => window.print(), 200); }}>Gerar PDF</Button>
               <Button variant="outline" size="sm" icon="eye" onClick={() => window.print()}>Visualizar</Button>
               <Button variant="secondary" size="sm" icon="copy" onClick={() => window.toast("Rascunho salvo no localStorage", "success")}>Salvar rascunho</Button>
-              <Button variant="primary" size="sm" icon="send" onClick={() => window.toast("Proposta enviada (simulação) — fluxo real será implementado", "success")}>Enviar p/ Cliente</Button>
+              <Button variant="primary" size="sm" icon="send" disabled={isExpirada} onClick={() => window.toast("Proposta enviada (simulação) — fluxo real será implementado", "success")}>Enviar p/ Cliente</Button>
             </div>
           </div>
         </div>
@@ -435,6 +452,7 @@ function renderSection(sid, eq, data, set) {
 
     case "valores": return <S_Valores d={data} set={set} eq={eq}/>;
     case "condicoesPagto": return <S_CondPagamentoElev d={data} set={set}/>;
+    case "clausulas": return <S_ClausulasComerciais d={data} set={set}/>;
     case "ajustes": return <S_Ajustes d={data} set={set} eq={eq}/>;
     case "prazo": return <S_PrazoEntrega d={data} set={set} eq={eq}/>;
     case "responsabilidades": return <S_Responsabilidades d={data} set={set}/>;

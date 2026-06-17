@@ -408,7 +408,16 @@ function LeadsPage({ setRoute, setSubsel }) {
                     {({ alta: "Alta", media: "Média", baixa: "Baixa" }[String(l.priority || "").toLowerCase()] || l.priority || "—")}
                   </Badge>
                 </td>
-                <td><Button variant="ghost" size="sm" icon="chevRight"/></td>
+                <td onClick={(e) => e.stopPropagation()} style={{ textAlign: "right" }}>
+                  <div className="row gap-1" style={{ justifyContent: "flex-end" }}>
+                    <Button variant="ghost" size="sm" icon="chevRight" onClick={() => { setSubsel(l); setRoute("lead-detail"); }}/>
+                    <Button variant="ghost" size="sm" onClick={() => {
+                      if (window.confirm(`Excluir lead "${l.building}"? Esta ação não pode ser desfeita.`)) {
+                        window.__VP_SB.sb.from('leads').delete().eq('id', l.id).then(reloadLeads);
+                      }
+                    }} style={{ color: "var(--vp-danger)", fontSize: 11 }}>Excluir</Button>
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -786,7 +795,16 @@ function CotacoesPage({ setRoute, setSubsel }) {
                   </div>
                 </td>
                 <td className="cell-money">{c.total ? fmtUSD(c.total) : "—"}</td>
-                <td><Button variant="ghost" size="sm" icon="chevRight"/></td>
+                <td onClick={(e) => e.stopPropagation()} style={{ textAlign: "right" }}>
+                  <div className="row gap-1" style={{ justifyContent: "flex-end" }}>
+                    <Button variant="ghost" size="sm" icon="chevRight" onClick={() => { setSubsel(c); setRoute("cotacao-detail"); }}/>
+                    <Button variant="ghost" size="sm" onClick={() => {
+                      if (window.confirm(`Excluir cotação ${c.id}? Esta ação não pode ser desfeita.`)) {
+                        window.__VP_SB.sb.from('cotacoes').delete().eq('id', c.id).then(reloadCotacoes);
+                      }
+                    }} style={{ color: "var(--vp-danger)", fontSize: 11 }}>Excluir</Button>
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>

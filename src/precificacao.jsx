@@ -290,10 +290,12 @@ function PropostasPage({ setRoute }) {
   const [list, setList] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
 
-  React.useEffect(() => {
+  const loadList = () => {
+    setLoading(true);
     window.__VP_SB.sb.from('cotacoes').select('*').order('date', { ascending: false })
       .then(({ data }) => { setList(data || []); setLoading(false); });
-  }, []);
+  };
+  React.useEffect(() => { loadList(); }, []);
 
   const totalValor = list.reduce((s, p) => s + (p.total || 0), 0);
   const fmtValorTotal = list.length > 0
@@ -341,7 +343,15 @@ function PropostasPage({ setRoute }) {
                 </div>
                 <div className="row sb" style={{ marginTop: 10 }}>
                   <div className="cell-money mono" style={{ fontSize: 16, fontWeight: 700 }}>{p.total ? fmtUSD(p.total) : '—'}</div>
-                  <Button variant="ghost" size="sm" iconRight="arrowRight">Editar</Button>
+                  <div className="row gap-1">
+                    <Button variant="ghost" size="sm" iconRight="arrowRight">Editar</Button>
+                    <Button variant="ghost" size="sm" onClick={(e) => {
+                      e.stopPropagation();
+                      if (window.confirm(`Excluir cotação ${p.id}? Esta ação não pode ser desfeita.`)) {
+                        window.__VP_SB.sb.from('cotacoes').delete().eq('id', p.id).then(loadList);
+                      }
+                    }} style={{ color: "var(--vp-danger)", fontSize: 11 }}>Excluir</Button>
+                  </div>
                 </div>
               </div>
             ))}

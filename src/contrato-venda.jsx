@@ -729,6 +729,13 @@ function CVDashboard() {
                       <a className="ci-icon-btn" title="Abrir assinatura" href={window.CVStore.signUrl(c.token)} target="_blank" rel="noopener">🔗</a>
                       {(c.status === 'enviado' || c.status === 'visualizado' || c.status === 'rascunho' || c.status === 'expirado') &&
                         <button className="ci-mini-btn" onClick={() => setSendRec(c)}>{c.status === 'rascunho' ? 'Enviar' : 'Reenviar'}</button>}
+                      <button className="ci-mini-btn" style={{ color: 'var(--vp-danger)', borderColor: 'var(--vp-danger-tint)' }}
+                        title="Excluir contrato"
+                        onClick={() => {
+                          if (window.confirm(`Excluir contrato ${c.numero_documento || c.id}? Esta ação não pode ser desfeita.`)) {
+                            window.CVStore.remove(c.id).then(refresh);
+                          }
+                        }}>Excluir</button>
                     </div>
                   </td>
                 </tr>

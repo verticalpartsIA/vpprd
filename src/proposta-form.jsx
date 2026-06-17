@@ -22,9 +22,18 @@ const OPTIONS = {
     "VPEL-MRL-PASSAGEIROS",
     "VPEL-SMR-PASSAGEIROS",
   ],
-  elevTipo: [
-    "COM CASA DE MÁQUINAS",
-    "SEM CASA DE MÁQUINAS",
+  // Família de produto — nível acima do acabamento (B5, B6). Determina norma (B2) e paineis disponíveis.
+  elevFamilia: [
+    "Passageiro",
+    "Passageiro Panorâmico",
+    "Maca / Leito (VPY)",
+    "Carga (VP301/VP302)",
+    "Home Lift (HC160/HC165)",
+  ],
+  // Modelo — MRL/SMR (B4). O texto "com/sem casa de máquinas" deriva deste campo, nunca é digitado fixo (P6).
+  elevModelo: [
+    "MRL — Machine Room Less (sem casa de máquinas)",
+    "SMR — Small Machine Room (com casa de máquinas)",
   ],
   elevNorma: [
     "16858-1/2",
@@ -46,11 +55,14 @@ const OPTIONS = {
   acabamentoMaterial: ["Aço Inox - 304", "Aço Inox - 430", "Aço pintado", "Aço Inox com painel traseiro espelhado"],
   subTeto: ["SUB-001","SUB-002","SUB-004","SUB-005","SUB-006","SUB-007"],
   painelOperacao: ["COP-05","CCOP-04","CCOP-05C – TFT","COP-017TFT","COP-029","COP-030","COP-027","Black Vision Glass"],
-  pisoCabina: ["Mármore Resinado","Rebaixo 20 mm","Rebaixo 25 mm","PVC","Antiderrapante"],
-  modeloPorta: ["Automática Central","Automática Lateral","Eixo Vertical"],
+  // 6 opções (B3) — piso impresso na proposta deve ser exatamente esta seleção (P7), sem campo duplicado em outro lugar.
+  pisoCabina: ["Mármore Resinado","Rebaixo 20 mm (recebe piso do cliente)","Rebaixo 25 mm (recebe piso do cliente)","PVC","Aço pintado antiderrapante","Aço inox antiderrapante"],
+  modeloPorta: ["Automática Central","Automática Lateral","Eixo Vertical","Automática Central 4 Folhas"],
   acabPortaCabine: ["Inox","Inox 304","Aço pintado","Aço espelhado"],
   portasPavimento: ["Inox","Inox 304","Aço pintado","Aço espelhado"],
   botoeirasPavimento: ["LOP - 12 C","LOP - 35","LOP - 36","LOP - 41"],
+  // Configuração de painéis — só aplicável ao modelo de cabine VP-004 (panorâmico, paredes/painéis de vidro) (B6).
+  paineisVP004: ["Todos os painéis de vidro","Traseiro + Esquerdo + Direito","Traseiro + Direito","Traseiro + Esquerdo","Traseiro"],
 
   // Escada Rolante
   escTitulo: ["Escada Rolante - OAK", "Escada Rolante - BULOKE"],
@@ -71,6 +83,15 @@ const OPTIONS = {
   arranjoEst: ["Paralelo", "Cruzada", "Simples"],
   maquinaEst: ["Superior", "Fosso"],
 };
+
+/* Norma de projeto condicionada à família do produto (B2). Passageiro/Passageiro Panorâmico -> NBR 16858;
+   Home Lift -> NBR 14712. Maca/Leito e Carga não foram informados pelo e-mail de origem — mantém a lista
+   completa com aviso, sem inventar mapeamento. */
+function normaOptionsPorFamilia(familia) {
+  if (familia === "Passageiro" || familia === "Passageiro Panorâmico") return ["16858-1/2", "16858-1/2/3"];
+  if (familia === "Home Lift (HC160/HC165)") return ["14712"];
+  return OPTIONS.elevNorma;
+}
 
 const FIXED = {
   emailDomain: "@verticalparts.com.br",
@@ -336,24 +357,37 @@ function S_DescricaoElevador({ d, set }) {
     arr[i] = { ...arr[i], [k]: v };
     set("elevador.descricao", arr);
   };
-  const add = () => set("elevador.descricao", [...items, { titulo: "", linha: "", tipo: "", norma: "", piso: "" }]);
+  const add = () => set("elevador.descricao", [...items, { titulo: "", linha: "", familia: "", modelo: "", norma: "" }]);
   const remove = (i) => set("elevador.descricao", items.filter((_, j) => j !== i));
   const dup = (i) => { const arr = [...items]; arr.splice(i + 1, 0, { ...items[i] }); set("elevador.descricao", arr); };
 
+  // Trocar a família reseta a norma se a norma atual não for válida para a nova família (B2/P6).
+  const updateFamilia = (i, v) => {
+    const arr = [...items];
+    const normaOpts = normaOptionsPorFamilia(v);
+    const normaAtual = arr[i].norma;
+    arr[i] = { ...arr[i], familia: v, norma: normaOpts.includes(normaAtual) ? normaAtual : "" };
+    set("elevador.descricao", arr);
+  };
+
   return (
     <>
-      {items.map((it, i) => (
-        <PERep key={i} idx={i} total={items.length} title="Descrição do Produto"
-          onDelete={() => remove(i)} onDuplicate={() => dup(i)}>
-          <div className="pe-grid cols-2">
-            <PEField label="Título" span="2"><PESelect value={it.titulo} onChange={(v) => update(i, "titulo", v)} options={OPTIONS.elevTitulo} placeholder="Selecione o modelo"/></PEField>
-            <PEField label="Linha do Produto"><PESelect value={it.linha} onChange={(v) => update(i, "linha", v)} options={OPTIONS.elevLinha}/></PEField>
-            <PEField label="Tipo de Elevador"><PESelect value={it.tipo} onChange={(v) => update(i, "tipo", v)} options={OPTIONS.elevTipo}/></PEField>
-            <PEField label="Norma de Projeto" tag="NBR"><PESelect value={it.norma} onChange={(v) => update(i, "norma", v)} options={OPTIONS.elevNorma}/></PEField>
-            <PEField label="Tipo de Piso / Diferencial"><PETextInput value={it.piso} onChange={(v) => update(i, "piso", v)} placeholder="Mármore resinado, rebaixo 25mm"/></PEField>
-          </div>
-        </PERep>
-      ))}
+      {items.map((it, i) => {
+        const modeloAtual = it.modelo || it.tipo || ""; // it.tipo = compat com rascunhos antigos
+        const normaOpts = normaOptionsPorFamilia(it.familia);
+        return (
+          <PERep key={i} idx={i} total={items.length} title="Descrição do Produto"
+            onDelete={() => remove(i)} onDuplicate={() => dup(i)}>
+            <div className="pe-grid cols-2">
+              <PEField label="Título" span="2"><PESelect value={it.titulo} onChange={(v) => update(i, "titulo", v)} options={OPTIONS.elevTitulo} placeholder="Selecione o modelo"/></PEField>
+              <PEField label="Linha do Produto"><PESelect value={it.linha} onChange={(v) => update(i, "linha", v)} options={OPTIONS.elevLinha}/></PEField>
+              <PEField label="Família de Produto"><PESelect value={it.familia} onChange={(v) => updateFamilia(i, v)} options={OPTIONS.elevFamilia} placeholder="Selecione a família"/></PEField>
+              <PEField label="Modelo" tag="MRL/SMR"><PESelect value={modeloAtual} onChange={(v) => update(i, "modelo", v)} options={OPTIONS.elevModelo}/></PEField>
+              <PEField label="Norma de Projeto" tag="NBR" span="2"><PESelect value={it.norma} onChange={(v) => update(i, "norma", v)} options={normaOpts}/></PEField>
+            </div>
+          </PERep>
+        );
+      })}
       <PERepAdd label="+ Adicionar Produto" onAdd={add}/>
     </>
   );
@@ -399,17 +433,26 @@ function S_EspecElevador({ d, set }) {
 function S_Acabamentos({ d, set, eq = "elevador" }) {
   const a = d.elevador.acabamentos;
   const u = (k) => (v) => set(`elevador.acabamentos.${k}`, v);
+  const isPanoramico = a.modeloCabine === "VP-004";
+  const is4Folhas = a.modeloPorta === "Automática Central 4 Folhas";
   return (
     <div className="pe-grid cols-2">
       <PEField label="Modelo da Cabine"><PESelect value={a.modeloCabine} onChange={u("modeloCabine")} options={OPTIONS.modeloCabine}/></PEField>
       <PEField label="Acabamento (material)"><PESelect value={a.acabamentoMat} onChange={u("acabamentoMat")} options={OPTIONS.acabamentoMaterial}/></PEField>
       <PEField label="Sub-teto"><PESelect value={a.subTeto} onChange={u("subTeto")} options={OPTIONS.subTeto}/></PEField>
       <PEField label="Painel de Operação / Botoeira de Cabine"><PESelect value={a.painelOperacao} onChange={u("painelOperacao")} options={OPTIONS.painelOperacao}/></PEField>
+      {isPanoramico ? (
+        <PEField label="Configuração de Painéis (Panorâmico)" span="2" help="Disponível apenas para cabine VP-004 (painéis de vidro). Não combine com cabines de carga ou home lift.">
+          <PESelect value={a.paineisVP004} onChange={u("paineisVP004")} options={OPTIONS.paineisVP004} placeholder="Selecione a configuração"/>
+        </PEField>
+      ) : null}
 
       <PEField label="Piso da Cabina"><PESelect value={a.pisoCabina} onChange={u("pisoCabina")} options={OPTIONS.pisoCabina}/></PEField>
       <PEField label="Medidas do Piso"><PETextInput value={a.medidasPiso} onChange={u("medidasPiso")} placeholder="800 x 2100mm"/></PEField>
 
-      <PEField label="Modelo de Porta"><PESelect value={a.modeloPorta} onChange={u("modeloPorta")} options={OPTIONS.modeloPorta}/></PEField>
+      <PEField label="Modelo de Porta" help={is4Folhas ? "4 folhas exige largura de porta compatível — validar com Engenharia antes de propor." : null}>
+        <PESelect value={a.modeloPorta} onChange={u("modeloPorta")} options={OPTIONS.modeloPorta}/>
+      </PEField>
       <PEField label="Dimensão da Porta de Cabine" tag="mm"><PETextInput value={a.dimPortaCabine} onChange={u("dimPortaCabine")} placeholder="800x2100mm"/></PEField>
 
       <PEField label="Acabamento Porta Cabine"><PESelect value={a.acabPortaCabine} onChange={u("acabPortaCabine")} options={OPTIONS.acabPortaCabine}/></PEField>

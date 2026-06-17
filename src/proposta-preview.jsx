@@ -143,6 +143,13 @@ function PreviewDescricaoEspec({ data, eq }) {
           <div key={i} style={{ marginBottom: 8 }}>
             <h3 className="pdf-h3">{d.titulo || `Produto ${i + 1}`}</h3>
             {d.linha ? <p style={{ fontWeight: 600 }}>{d.linha}</p> : null}
+            {eq === "elevador" && (d.familia || d.modelo || d.norma) ? (
+              <div className="pdf-spec-grid">
+                {d.familia ? <div><span>Família</span><b>{d.familia}</b></div> : null}
+                {d.modelo ? <div><span>Modelo</span><b>{d.modelo}</b></div> : null}
+                {d.norma ? <div><span>Norma</span><b>NBR {d.norma}</b></div> : null}
+              </div>
+            ) : null}
             {d.desc ? <p>{d.desc}</p> : null}
             {d.beneficios ? <p style={{ whiteSpace: "pre-line" }}>{d.beneficios}</p> : null}
           </div>
@@ -212,6 +219,7 @@ function PreviewAcabamentos({ data }) {
           <div><span>Botoeiras Pavim.</span><b>{a.botoeirasPavimento || "—"}</b></div>
           <div><span>Sinalização</span><b>{a.sinalizacao || "—"}</b></div>
         </div>
+        {a.modeloCabine === "VP-004" && a.paineisVP004 ? <p style={{ marginTop: 6 }}><b>Configuração de painéis:</b> {a.paineisVP004}</p> : null}
         {a.pavInox ? <p style={{ marginTop: 6 }}><b>Pavimentos inox:</b> {a.pavInox}</p> : null}
         {a.demais ? <><h3 className="pdf-h3">Demais</h3><p>{a.demais}</p></> : null}
       </div>

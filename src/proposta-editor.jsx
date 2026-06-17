@@ -25,10 +25,10 @@ function makeDefaultProposta() {
     elevador: {
       textoProposta: "Prezado(a) cliente,\n\nÉ com satisfação que apresentamos nossa proposta comercial para o fornecimento de elevador VPELEV VP-P, com tecnologia gearless e atendimento à NBR 16858.",
       textoModelos: "A linha VPEL-MRL-PASSAGEIROS oferece elevadores de passageiros com cabines em aço inox 304, painel de operação TFT colorido e portas automáticas com abertura central.",
-      descricao: [{ titulo: "Elevador de Passageiros VPELEV VP-P", linha: "VPEL-MRL-PASSAGEIROS", tipo: "SEM CASA DE MÁQUINAS", norma: "16858-1/2", piso: "Mármore Resinado" }],
+      descricao: [{ titulo: "Elevador de Passageiros VPELEV VP-P", linha: "VPEL-MRL-PASSAGEIROS", familia: "Passageiro", modelo: "MRL — Machine Room Less (sem casa de máquinas)", norma: "16858-1/2" }],
       especificacoes: [{
         id: "Elevador 1",
-        modelo: "SMR - Machine Room Less",
+        modelo: "MRL — Machine Room Less (sem casa de máquinas)",
         empreendimento: "Residencial",
         carac: "Passageiros",
         denominacao: "(-1, 0, 1 à 16)",
@@ -47,6 +47,7 @@ function makeDefaultProposta() {
         acabPortaCabine: "Inox", portasPavimento: "Inox", botoeirasPavimento: "LOP - 35",
         sinalizacao: "Display TFT 4.3'' colorido", pavInox: "0 inox e demais Pintura",
         demais: "Corrimão tubular inox · espelho 3/4 traseiro · ventilação cabine 80 m³/h",
+        paineisVP004: "",
       },
       caracteristicas: ["Sistema de tração gearless de alta eficiência energética", "Comando microprocessado MAX-3000 com prioridade de chamadas inteligente"],
       recursos: ["Resgate automático em falta de energia (ARD)", "Comunicação bidirecional integrada à central 24h"],

@@ -1029,13 +1029,32 @@ function ModalAgendarInstalacao({ onClose }) {
 
 function InstalacaoPage() {
   const [equipes, setEquipes] = React.useState([]);
+  const [projetos, setProjetos] = React.useState([]);
+  const [parceiros, setParceiros] = React.useState([]);
+  const [alocacoes, setAlocacoes] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [selectedEquipe, setSelectedEquipe] = React.useState(null);
   const [showAgendar, setShowAgendar] = React.useState(false);
 
   React.useEffect(() => {
-    window.__VP_SB.sb.from('equipes').select('*')
-      .then(({ data }) => { setEquipes(data || []); setLoading(false); });
+    Promise.all([
+      window.__VP_SB.sb.from('equipes').select('*'),
+      window.__VP_SB.sb.from('projetos').select('*'),
+      window.__VP_SB.sb.from('parceiros_instaladores').select('*'),
+    ]).then(([eq, proj, parc]) => {
+      setEquipes(eq.data || []);
+      setProjetos(proj.data || []);
+      setParceiros(parc.data || []);
+      // Simula alocações (projeto.id = montador vinculado)
+      const alocs = (proj.data || []).filter(p => p.status === "Em vistoria" || p.status === "Laudo emitido").map(p => ({
+        projeto: p,
+        parceiro: (parc.data || []).find(pc => pc.nome && p.responsavel?.includes(pc.nome)),
+        iniciado: p.visita,
+        previsao: new Date(new Date(p.visita).getTime() + 45*24*60*60*1000).toISOString(),
+      })).filter(a => a.parceiro);
+      setAlocacoes(alocs);
+      setLoading(false);
+    });
   }, []);
 
   if (loading) return <div style={{ textAlign:'center', padding:'60px 0', color:'var(--fg3)', fontSize:13 }}>Carregando…</div>;
@@ -1056,10 +1075,73 @@ function InstalacaoPage() {
 
       <div className="grid-4" style={{ marginBottom: 20 }}>
         <KPI label="Equipes em campo" value={equipes.filter(e => e.status === "Em campo").length} sub="ativas" icon="hardhat"/>
-        <KPI label="Obras ativas" value="—" sub="sem dados suficientes" icon="briefcase"/>
-        <KPI label="Tempo médio obra" value="—" sub="sem dados suficientes" icon="clock"/>
+        <KPI label="Obras ativas" value={String(alocacoes.length)} sub="com parceiro alocado" icon="briefcase"/>
+        <KPI label="Parceiros homologados" value={String(parceiros.length)} sub="disponíveis" icon="users"/>
         <KPI label="Termos de aceite" value="—" sub="sem dados suficientes" icon="check"/>
       </div>
+
+      {alocacoes.length > 0 && (
+        <Card title="Parceiros em Obras" sub={`${alocacoes.length} alocações ativas`} style={{ marginBottom: 20 }}>
+          <div className="stack" style={{ gap: 14 }}>
+            {alocacoes.map((aloc, i) => {
+              const diasRestantes = Math.ceil((new Date(aloc.previsao) - new Date()) / (1000*60*60*24));
+              const progresso = Math.max(0, Math.min(100, 100 - (diasRestantes / 45 * 100)));
+              const statusColor = diasRestantes < 7 ? '#dc2626' : diasRestantes < 14 ? '#f59e0b' : '#10b981';
+
+              return (
+                <div key={i} style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 6, padding: 14 }}>
+                  <div className="row sb" style={{ marginBottom: 12, alignItems: 'flex-start' }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700 }}>🏢 {aloc.parceiro?.nome || 'Parceiro não alocado'}</div>
+                      <div style={{ fontSize: 12, color: 'var(--fg3)', marginTop: 2 }}>
+                        Obra: <b>{aloc.projeto.building}</b> ({aloc.projeto.id})
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div className="up-eyebrow muted">Status</div>
+                      <StatusBadge status={aloc.projeto.status}/>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12, fontSize: 12 }}>
+                    <div>
+                      <div className="up-eyebrow muted">Iniciado</div>
+                      <div style={{ fontWeight: 600, marginTop: 2 }}>{new Date(aloc.iniciado).toLocaleDateString('pt-BR')}</div>
+                    </div>
+                    <div>
+                      <div className="up-eyebrow muted">Previsão de Entrega</div>
+                      <div style={{ fontWeight: 600, marginTop: 2, color: statusColor }}>
+                        {new Date(aloc.previsao).toLocaleDateString('pt-BR')}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="up-eyebrow muted">Dias Restantes</div>
+                      <div style={{ fontWeight: 600, marginTop: 2, color: statusColor }}>{diasRestantes} dias</div>
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: 10 }}>
+                    <div className="up-eyebrow muted" style={{ marginBottom: 4 }}>Progresso</div>
+                    <div className="progress"><span style={{ width: progresso + '%' }}/></div>
+                    <div style={{ fontSize: 11, color: 'var(--fg3)', marginTop: 4 }}>{Math.round(progresso)}% concluído</div>
+                  </div>
+
+                  {aloc.parceiro && (
+                    <div style={{ fontSize: 11, color: 'var(--fg3)', padding: '8px 10px', background: 'var(--vp-gray-50)', borderRadius: 4 }}>
+                      ✓ Certificações ativas: {
+                        Object.entries(aloc.parceiro.certificacoes || {})
+                          .filter(([_, cert]) => cert?.data_validade && new Date(cert.data_validade) > new Date())
+                          .map(([key]) => key.toUpperCase())
+                          .join(', ') || 'Nenhuma'
+                      }
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
 
       <div className="grid-2" style={{ gap: 20 }}>
         <Card title="Equipes" sub={`${equipes.length} equipes`} sharp>

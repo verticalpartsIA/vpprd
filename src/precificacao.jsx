@@ -88,7 +88,7 @@ function PrecificacaoPage({ setRoute }) {
 
       {selectedProject !== null ? (
         <div style={{ marginTop: 20 }}>
-          <PrecificacaoDetail project={selectedProject}/>
+          <PrecificacaoDetail project={selectedProject} setRoute={setRoute}/>
         </div>
       ) : items.length > 0 && (
         <div style={{ marginTop: 20, textAlign:'center', padding:'32px 0', color:'var(--fg3)', fontSize:13, border:'1px dashed var(--border)' }}>
@@ -99,7 +99,7 @@ function PrecificacaoPage({ setRoute }) {
   );
 }
 
-function PrecificacaoDetail({ project = {} }) {
+function PrecificacaoDetail({ project = {}, setRoute }) {
   // Carregar análise técnica se existir
   const [analise, setAnalise] = React.useState(null);
   const [loading, setLoading] = React.useState(!!project.dossier_id);
@@ -228,7 +228,7 @@ function PrecificacaoDetail({ project = {} }) {
       action={<>
         <Button variant="outline" size="sm" icon="history">Versões</Button>
         <Button variant="outline" size="sm" icon="copy">Duplicar</Button>
-        <Button variant="primary" size="sm" icon="proposal">Gerar proposta</Button>
+        <Button variant="primary" size="sm" icon="proposal" onClick={() => setRoute && setRoute("proposta-editor")}>Gerar proposta</Button>
       </>}
       sharp={true}>
       <div className="split--wide split">

@@ -92,10 +92,21 @@ function ModalNovoLead({ onClose, onSaved, onCreateCotacao }) {
     </div>
   );
 
+  /* ISSUE #13: Auto-close modal após salvar lead se usuário não interagir */
+  React.useEffect(() => {
+    if (savedLead) {
+      const timer = setTimeout(() => {
+        setSavedLead(null);
+        onClose();
+      }, 4000);  // fecha automaticamente em 4 segundos
+      return () => clearTimeout(timer);
+    }
+  }, [savedLead, onClose]);
+
   /* ---- pós-save: confirmar criação de cotação ---- */
   if (savedLead) {
     return (
-      <Modal title="Lead Criado!" onClose={onClose} width={500}
+      <Modal title="✓ Lead Criado! (fechará em 4s)" onClose={() => { setSavedLead(null); onClose(); }} width={500}
         footer={<>
           <Button variant="ghost" onClick={onClose}>Fechar</Button>
           {onCreateCotacao && (

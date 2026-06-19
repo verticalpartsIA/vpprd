@@ -371,7 +371,7 @@ function PrecificacaoDetail({ project = {} }) {
               <div className="calc-summary__final-lbl">Preço final BRL</div>
               <div className="calc-summary__final-val">{fmtBRL(valorFinal)}</div>
               <div className="row sb" style={{ marginTop: 16, fontSize: 11, color: "rgba(255,255,255,.6)", fontFamily: "var(--font-mono)" }}>
-                <span>Margem efetiva: <b style={{ color: "#fff" }}>{(margemBRL / valorFinal * 100).toFixed(1)}%</b></span>
+                <span>Margem efetiva: <b style={{ color: "#fff" }}>{valorFinal > 0 ? (margemBRL / valorFinal * 100).toFixed(1) : '—'}%</b></span>
                 <span>Câmbio: <b style={{ color: "#fff" }}>R$ {usdRate.toFixed(2)}</b></span>
               </div>
             </div>

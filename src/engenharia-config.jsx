@@ -175,6 +175,7 @@ function ConfiguradorModal({ spec, onClose, onSaved }) {
   const [params, setParams] = React.useState(
     spec?.params && Object.keys(spec.params).length ? spec.params : EQ_DEFAULTS[spec?.tipo || "escada_rolante"]);
   const [anexos, setAnexos] = React.useState(spec?.anexos || []);
+  const [projetoPdf, setProjetoPdf] = React.useState(spec?.projeto_pdf_recebido ? spec.projeto_pdf : null);
   const [uploading, setUploading] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
 
@@ -212,6 +213,8 @@ function ConfiguradorModal({ spec, onClose, onSaved }) {
       id: idRef.current, referencia: ref, responsavel: resp || null, tipo,
       status: finalizar ? "finalizado" : "rascunho",
       params, computed: eqCompute(tipo, params), anexos, observacoes: obs || null,
+      projeto_pdf_recebido: !!projetoPdf,
+      projeto_pdf: projetoPdf || null,
       updated_at: new Date().toISOString(),
     };
     const q = editing
@@ -274,6 +277,38 @@ function ConfiguradorModal({ spec, onClose, onSaved }) {
             <div className="up-eyebrow" style={{ color: "var(--vp-yellow-press)", marginBottom: 8 }}>Resumo técnico calculado</div>
             <EqComputed tipo={tipo} c={computed} p={params}/>
           </div>
+        </div>
+
+        <div className="stack" style={{ gap: 6, padding: "12px", background: "#fef3c7", borderRadius: "4px", border: "1px solid #fbbf24" }}>
+          <label className="up-eyebrow muted" style={{ color: "#92400e", fontWeight: 700 }}>📄 PDF do Projeto (Inglês + Chinês)</label>
+          <p style={{ margin: 0, fontSize: 12, color: "#b45309", lineHeight: 1.4 }}>
+            {projetoPdf
+              ? `✅ PDF recebido: ${projetoPdf.nome || 'arquivo enviado'}`
+              : '❌ Aguardando o PDF do projeto traduzido. Este é o segundo gatilho crítico para iniciar a importação.'}
+          </p>
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 6, width: "fit-content", cursor: "pointer", border: "1px solid #d97706", padding: "6px 12px", fontSize: 12, fontWeight: 600, background: "#fff" }}>
+            <Icon.upload size={12}/> {uploading ? "Enviando…" : "Carregar PDF"}
+            <input type="file" accept=".pdf" style={{ display: "none" }} onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              setUploading(true);
+              const path = `${idRef.current}/${Date.now()}_projeto_${file.name.replace(/[^\w.\-]/g, "_")}`;
+              const { error } = await window.__VP_SB.sb.storage.from("engenharia").upload(path, file, { upsert: true });
+              if (error) { window.toast("Falha no upload: " + error.message, "error"); setUploading(false); return; }
+              const { data } = window.__VP_SB.sb.storage.from("engenharia").getPublicUrl(path);
+              setProjetoPdf({ nome: file.name, url: data.publicUrl, tipo: file.type, tamanho: file.size, path });
+              setUploading(false);
+              window.toast("PDF do projeto carregado com sucesso!", "success");
+            }}/>
+          </label>
+          {projetoPdf && (
+            <button onClick={() => {
+              if (projetoPdf?.path) window.__VP_SB.sb.storage.from("engenharia").remove([projetoPdf.path]);
+              setProjetoPdf(null);
+            }} style={{ display: "inline-flex", alignItems: "center", gap: 4, cursor: "pointer", border: "1px solid #ef4444", color: "#991b1b", padding: "4px 8px", fontSize: 11, background: "#fee2e2", borderRadius: "3px" }}>
+              <Icon.x size={11}/> Remover PDF
+            </button>
+          )}
         </div>
 
         <div className="stack" style={{ gap: 6 }}>

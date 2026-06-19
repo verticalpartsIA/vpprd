@@ -653,13 +653,30 @@ function ModalNovaCotacao({ onClose, onSaved, prefill = null }) {
     deadline: '',
     line:     '',
   }));
+  const [leads, setLeads] = React.useState([]);
+  const [leadSearch, setLeadSearch] = React.useState('');
+  const [showLeadDropdown, setShowLeadDropdown] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
+
+  React.useEffect(() => {
+    if (window.__VP_SB?.sb) {
+      window.__VP_SB.sb.from('leads').select('id,building').order('date', { ascending: false })
+        .then(({ data }) => setLeads(data || []));
+    }
+  }, []);
+
   const set = (k, v) => setF(p => ({ ...p, [k]: v }));
+  const selectedLead = leads.find(l => l.id === f.lead);
+  const filteredLeads = leads.filter(l =>
+    l.id.toLowerCase().includes(leadSearch.toLowerCase()) ||
+    l.building.toLowerCase().includes(leadSearch.toLowerCase())
+  );
 
   const save = async () => {
     if (!f.building.trim()) return window.toast('Prédio é obrigatório.', 'warning');
     if (!f.supplier.trim()) return window.toast('Fornecedor é obrigatório.', 'warning');
     if (!f.deadline) return window.toast('Prazo de retorno é obrigatório.', 'warning');
+    if (f.lead && !leads.find(l => l.id === f.lead)) return window.toast('Lead inválido. Selecione um lead da lista.', 'warning');
     setSaving(true);
     const id = 'CT-' + Date.now().toString().slice(-6);
     const { error } = await window.__VP_SB.sb.from('cotacoes').insert({
@@ -712,7 +729,43 @@ function ModalNovaCotacao({ onClose, onSaved, prefill = null }) {
         <div className="grid-2" style={{ gap:12 }}>
           <div className="stack" style={{ gap:4 }}>
             <label className="up-eyebrow muted">Lead de referência</label>
-            <input className="input" value={f.lead} onChange={e => set('lead', e.target.value)} placeholder="ID ou nome do lead"/>
+            <div style={{ position: 'relative' }}>
+              <input
+                className="input"
+                placeholder="Buscar ID ou prédio…"
+                value={showLeadDropdown ? leadSearch : (selectedLead?.building || selectedLead?.id || '')}
+                onChange={e => { setLeadSearch(e.target.value); setShowLeadDropdown(true); }}
+                onFocus={() => setShowLeadDropdown(true)}
+                onBlur={() => setTimeout(() => setShowLeadDropdown(false), 200)}
+              />
+              {showLeadDropdown && (
+                <div
+                  style={{
+                    position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4,
+                    background: 'var(--bg1)', border: '1px solid var(--border)', borderRadius: 4,
+                    maxHeight: 200, overflowY: 'auto', zIndex: 1000
+                  }}
+                  onMouseDown={(e) => e.preventDefault()}
+                >
+                  {filteredLeads.length === 0 ? (
+                    <div style={{ padding: '8px 12px', fontSize: 12, color: 'var(--fg3)' }}>Nenhum lead encontrado</div>
+                  ) : (
+                    filteredLeads.map(l => (
+                      <div
+                        key={l.id}
+                        style={{
+                          padding: '8px 12px', borderBottom: '1px solid var(--vp-gray-50)',
+                          cursor: 'pointer', fontSize: 12, color: 'var(--fg1)'
+                        }}
+                        onClick={() => { set('lead', l.id); setShowLeadDropdown(false); setLeadSearch(''); }}
+                      >
+                        <span className="mono" style={{ fontSize: 10, color: 'var(--fg3)' }}>{l.id}</span> · {l.building}
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
           </div>
           <div className="stack" style={{ gap:4 }}>
             <label className="up-eyebrow muted">Qtd. de itens</label>

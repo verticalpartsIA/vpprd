@@ -172,7 +172,7 @@ vistorias_obras
 ├── imagens (JSONB) — [{nome, tipo, tamanho, dados}]
 ├── criado_em (TIMESTAMPTZ)
 ├── atualizado_em (TIMESTAMPTZ)
-└── criado_por (TEXT, FK→auth.users)
+└── criado_por (UUID, FK→auth.users)
 ```
 
 ---
@@ -194,6 +194,7 @@ vistorias_obras
 - [x] Routes configured
 - [x] Migration SQL prepared and schema fixed
 - [x] Git commits signed and pushed
+- [x] **Pushed to GitHub via MCP**
 - [ ] **MANUAL: Execute migration in Supabase Dashboard**
 - [ ] Verify table creation
 - [ ] Frontend test in browser
@@ -217,4 +218,4 @@ If migration fails in Supabase Dashboard:
 
 **Generated**: 2026-06-20  
 **Branch**: claude/quirky-dijkstra-q4c502  
-**Status**: Ready for manual migration execution
+**Status**: Pushed to GitHub & Ready for deployment

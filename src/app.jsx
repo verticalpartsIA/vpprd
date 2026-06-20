@@ -22,6 +22,7 @@ const ROUTE_TITLE = {
   "contrato-editor": "Editor de Contrato",
   "contrato-venda-equipamentos": "Contrato Venda de Equipamentos",
   "contrato-instalador": "Contrato Instalador",
+  vistorias: "Vistorias de Obras",
   instalacao: "Instalação em Campo",
   art: "ART de Instalação",
   cronograma: "Cronograma de Instalação",
@@ -173,6 +174,7 @@ function App() {
       case "contrato-editor": return <ContratoEditorPage contrato={subsel} setRoute={setRoute} onSaved={() => {}} />;
       case "contrato-venda-equipamentos": return <ContratoVendaEquipamentosPage/>;
       case "contrato-instalador": return <ContratoInstaladorPage/>;
+      case "vistorias": return <VistoriasObras obraId={subsel} setRoute={setRoute}/>;
       case "instalacao": return <InstalacaoPage/>;
       case "art": return <ArtPage/>;
       case "cronograma": return <CronogramaPage/>;
